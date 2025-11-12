@@ -7,8 +7,23 @@ const Header = ({ user, onLogout }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    onLogout && onLogout();
+  // Close menu when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserMenu && !event.target.closest('.header-user')) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserMenu]);
+
+  const handleLogout = async () => {
+    setShowUserMenu(false);
+    if (onLogout) {
+      await onLogout();
+    }
     navigate('/login');
   };
 

@@ -1,0 +1,161 @@
+/* Groups Dashboard Container */
+.groups-dashboard-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Groups Dashboard Header */
+.groups-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.groups-dashboard-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.groups-dashboard-subtitle {
+  margin: 8px 0 0 0;
+  font-size: 14px;
+  color: #666;
+}
+
+/* Groups Stats Grid */
+.groups-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+/* Payments Dashboard Container */
+.payments-dashboard-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Payments Dashboard Header */
+.payments-dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.payments-dashboard-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.payments-dashboard-subtitle {
+  margin: 8px 0 0 0;
+  font-size: 14px;
+  color: #666;
+}
+
+/* Payments Stats Grid */
+.payments-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+/* Payment Card */
+.payment-card {
+  padding: 20px;
+  border-radius: 12px;
+  background: white;
+  border: 2px solid #f0f0f0;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.payment-card:hover {
+  border-color: #2196f3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.15);
+}
+
+.payment-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.payment-card-group {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.payment-card-cycle {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.payment-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-card-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2196f3;
+}
+
+.payment-card-due {
+  font-size: 13px;
+  color: #666;
+}
+
+.payment-card-footer {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .groups-dashboard-container,
+  .payments-dashboard-container {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .groups-dashboard-header,
+  .payments-dashboard-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .groups-dashboard-header h1,
+  .payments-dashboard-header h1 {
+    font-size: 24px;
+  }
+
+  .groups-stats-grid,
+  .payments-stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+}
