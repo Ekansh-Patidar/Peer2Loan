@@ -1,0 +1,415 @@
+/* ==========================================================================
+   src/components/features/groups/GroupForm/GroupForm.css
+   ========================================================================== */
+
+.group-form {
+  width: 100%;
+}
+
+.group-form .MuiTextField-root {
+  transition: all 0.3s ease;
+}
+
+.group-form .MuiTextField-root:focus-within {
+  transform: scale(1.01);
+}
+
+.group-form .MuiDivider-root {
+  margin: 24px 0;
+}
+
+.group-form .MuiTypography-h6 {
+  color: #1976d2;
+  margin-bottom: 16px;
+}
+
+.group-form .MuiButton-contained {
+  min-width: 120px;
+}
+
+/* Form sections */
+.group-form section {
+  margin-bottom: 32px;
+}
+
+/* Switch styling */
+.group-form .MuiFormControlLabel-root {
+  margin: 8px 0;
+}
+
+.group-form .MuiSwitch-root {
+  margin-right: 8px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .group-form .MuiGrid-item {
+    padding: 8px;
+  }
+}
+
+
+/* ==========================================================================
+   src/components/features/groups/MemberList/MemberList.css
+   ========================================================================== */
+
+.member-list {
+  width: 100%;
+}
+
+.member-list .MuiTableRow-root {
+  transition: background-color 0.2s;
+}
+
+.member-list .MuiTableRow-root:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.member-list .MuiTableCell-head {
+  font-weight: 600;
+  background-color: #f5f5f5;
+}
+
+.member-list .MuiChip-root {
+  font-weight: 500;
+}
+
+.member-list .MuiIconButton-root {
+  transition: all 0.3s;
+}
+
+.member-list .MuiIconButton-root:hover {
+  transform: scale(1.1);
+}
+
+/* Avatar animation */
+.member-list .MuiAvatar-root {
+  transition: transform 0.3s;
+}
+
+.member-list .MuiTableRow-root:hover .MuiAvatar-root {
+  transform: scale(1.1);
+}
+
+/* Status indicators */
+.member-list .status-active {
+  color: #4caf50;
+}
+
+.member-list .status-pending {
+  color: #ff9800;
+}
+
+.member-list .status-inactive {
+  color: #9e9e9e;
+}
+
+/* Empty state */
+.member-list-empty {
+  padding: 48px;
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .member-list .MuiTableCell-root {
+    padding: 12px 8px;
+    font-size: 0.875rem;
+  }
+}
+
+
+/* ==========================================================================
+   src/components/features/groups/InviteModal/InviteModal.css
+   ========================================================================== */
+
+.invite-modal {
+  min-width: 400px;
+}
+
+.invite-modal .MuiDialog-paper {
+  border-radius: 12px;
+}
+
+.invite-modal .MuiDialogTitle-root {
+  padding: 24px 24px 16px;
+  font-weight: 600;
+}
+
+.invite-modal .MuiDialogContent-root {
+  padding: 24px;
+}
+
+.invite-modal .MuiDialogActions-root {
+  padding: 16px 24px 24px;
+}
+
+.invite-modal .MuiTextField-root {
+  margin-bottom: 16px;
+}
+
+.invite-modal .MuiAlert-root {
+  border-radius: 8px;
+}
+
+/* Animation */
+.invite-modal .MuiDialog-paper {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .invite-modal {
+    min-width: unset;
+  }
+  
+  .invite-modal .MuiDialog-paper {
+    margin: 16px;
+  }
+}
+
+
+/* ==========================================================================
+   src/components/features/groups/TurnOrderView/TurnOrderView.css
+   ========================================================================== */
+
+.turn-order-view {
+  padding: 16px 0;
+}
+
+.turn-order-view .MuiStepper-root {
+  padding: 0;
+}
+
+.turn-order-view .MuiStep-root {
+  margin-bottom: 24px;
+}
+
+.turn-order-view .MuiStepLabel-root {
+  padding: 8px 0;
+}
+
+.turn-order-view .MuiAvatar-root {
+  transition: all 0.3s;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.turn-order-view .MuiStep-root:hover .MuiAvatar-root {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Current turn highlight */
+.turn-order-view .current-turn {
+  background-color: rgba(25, 118, 210, 0.08);
+  padding: 16px;
+  border-radius: 8px;
+  border-left: 4px solid #1976d2;
+}
+
+/* Completed turn */
+.turn-order-view .completed-turn {
+  opacity: 0.7;
+}
+
+.turn-order-view .completed-turn .MuiAvatar-root {
+  border-color: #4caf50;
+}
+
+/* Upcoming turn */
+.turn-order-view .upcoming-turn {
+  opacity: 0.5;
+}
+
+/* Step connector */
+.turn-order-view .MuiStepConnector-line {
+  border-color: #e0e0e0;
+  border-left-width: 2px;
+}
+
+.turn-order-view .Mui-completed .MuiStepConnector-line {
+  border-color: #4caf50;
+}
+
+/* Icons */
+.turn-order-view .MuiSvgIcon-root {
+  font-size: 2rem;
+}
+
+/* Chip styling */
+.turn-order-view .MuiChip-root {
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+/* Empty state */
+.turn-order-empty {
+  text-align: center;
+  padding: 48px;
+  color: #757575;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .turn-order-view .MuiAvatar-root {
+    width: 32px;
+    height: 32px;
+    font-size: 0.875rem;
+  }
+  
+  .turn-order-view .MuiTypography-body1 {
+    font-size: 0.875rem;
+  }
+}
+
+
+/* ==========================================================================
+   src/assets/styles/groups.css - Global Group Styles
+   ========================================================================== */
+
+/* Group page containers */
+.group-page-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Group header */
+.group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.group-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1976d2;
+}
+
+/* Group status badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.pending {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.status-badge.active {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.completed {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.status-badge.cancelled {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+/* Group stats cards */
+.stats-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+}
+
+.stats-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.stats-card .stat-label {
+  font-size: 0.875rem;
+  color: #757575;
+  margin-bottom: 8px;
+}
+
+.stats-card .stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1976d2;
+}
+
+/* Loading states */
+.group-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+/* Error states */
+.group-error {
+  text-align: center;
+  padding: 48px;
+  color: #d32f2f;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .group-page-container {
+    padding: 16px;
+  }
+  
+  .group-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .group-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .stats-card {
+    padding: 16px;
+  }
+  
+  .stats-card .stat-value {
+    font-size: 1.5rem;
+  }
+}
