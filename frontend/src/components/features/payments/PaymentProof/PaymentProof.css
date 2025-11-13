@@ -1,0 +1,68 @@
+.payment-proof {
+  width: 100%;
+}
+
+.payment-proof-image {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 8px;
+  transition: transform 0.3s;
+}
+
+.payment-proof-image:hover {
+  transform: scale(1.02);
+}
+
+.payment-proof-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0);
+  transition: background-color 0.3s;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.payment-proof:hover .payment-proof-overlay {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.payment-proof-overlay .preview-button {
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.3s;
+  pointer-events: auto;
+}
+
+.payment-proof:hover .payment-proof-overlay .preview-button {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.payment-proof-preview {
+  background-color: #000;
+  padding: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.payment-proof-preview img {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+}
+
+@media (max-width: 600px) {
+  .payment-proof-image {
+    max-height: 200px;
+  }
+}
