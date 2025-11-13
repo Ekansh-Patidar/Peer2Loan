@@ -173,3 +173,6 @@ a:hover {
   font-size: 14px;
   margin-top: var(--spacing-xs);
 }
+
+/* Import feature-specific styles */
+@import './groups.css';
