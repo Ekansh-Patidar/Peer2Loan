@@ -16,10 +16,11 @@ import TestComponents from '../pages/TestComponents';
 // import AdminDashboard from '../pages/Dashboard/AdminDashboard';
 // import MemberDashboard from '../pages/Dashboard/MemberDashboard';
 
-// Group Pages (Placeholder - will be created by Member 2)
-// import GroupList from '../pages/Groups/GroupList';
-// import GroupDetails from '../pages/Groups/GroupDetails';
-// import CreateGroup from '../pages/Groups/CreateGroup';
+// Group Pages
+import GroupList from '../pages/Groups/GroupList';
+import GroupDetails from '../pages/Groups/GroupDetails';
+import CreateGroup from '../pages/Groups/CreateGroup';
+import EditGroup from '../pages/Groups/EditGroup';
 
 // Payment Pages (Placeholder - will be created by Member 3)
 // import RecordPayment from '../pages/Payments/RecordPayment';
@@ -94,6 +95,39 @@ const AppRoutes = () => {
       {/* <Route path="/groups" element={<PrivateRoute><GroupList /></PrivateRoute>} />
       <Route path="/groups/create" element={<PrivateRoute><CreateGroup /></PrivateRoute>} />
       <Route path="/groups/:groupId" element={<PrivateRoute><GroupDetails /></PrivateRoute>} /> */}
+      {/* Group Routes */}
+      <Route
+        path="/groups"
+        element={
+          <PrivateRoute>
+            <GroupList />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/groups/create"
+        element={
+          <PrivateRoute>
+            <CreateGroup />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/groups/:id"
+        element={
+          <PrivateRoute>
+            <GroupDetails />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/groups/:id/edit"
+        element={
+          <PrivateRoute>
+            <EditGroup />
+          </PrivateRoute>
+        }
+      />
 
       {/* Payment Routes - Uncomment when Member 3 completes */}
       {/* <Route path="/payments" element={<PrivateRoute><RecordPayment /></PrivateRoute>} />
