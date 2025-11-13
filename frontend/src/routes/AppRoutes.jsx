@@ -29,6 +29,31 @@ import { MembersDashboard } from '../pages/Members';
 
 // Payout Pages
 import { PayoutsDashboard } from '../pages/Payouts';
+// Dashboard Pages (Placeholder - will be created by Member 4)
+// import AdminDashboard from '../pages/Dashboard/AdminDashboard';
+// import MemberDashboard from '../pages/Dashboard/MemberDashboard';
+
+// Group Pages
+import GroupList from '../pages/Groups/GroupList';
+import GroupDetails from '../pages/Groups/GroupDetails';
+import CreateGroup from '../pages/Groups/CreateGroup';
+import EditGroup from '../pages/Groups/EditGroup';
+
+// Payment Pages (Placeholder - will be created by Member 3)
+// import RecordPayment from '../pages/Payments/RecordPayment';
+// import PaymentHistory from '../pages/Payments/PaymentHistory';
+
+// Report Pages (Placeholder - will be created by Member 4)
+// import GroupLedger from '../pages/Reports/GroupLedger';
+// import MemberLedger from '../pages/Reports/MemberLedger';
+
+// Temporary Dashboard Component (remove when Member 4 completes)
+const TempDashboard = () => (
+  <div style={{ padding: '20px' }}>
+    <h1>Dashboard</h1>
+    <p>Dashboard components will be added by Member 4</p>
+  </div>
+);
 
 const AppRoutes = () => {
   return (
@@ -96,6 +121,43 @@ const AppRoutes = () => {
 
       {/* Member Routes */}
       <Route path="/members" element={<PrivateRoute><MembersDashboard /></PrivateRoute>} />
+      {/* Group Routes - Uncomment when Member 2 completes */}
+      {/* <Route path="/groups" element={<PrivateRoute><GroupList /></PrivateRoute>} />
+      <Route path="/groups/create" element={<PrivateRoute><CreateGroup /></PrivateRoute>} />
+      <Route path="/groups/:groupId" element={<PrivateRoute><GroupDetails /></PrivateRoute>} /> */}
+      {/* Group Routes */}
+      <Route
+        path="/groups"
+        element={
+          <PrivateRoute>
+            <GroupList />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/groups/create"
+        element={
+          <PrivateRoute>
+            <CreateGroup />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/groups/:id"
+        element={
+          <PrivateRoute>
+            <GroupDetails />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/groups/:id/edit"
+        element={
+          <PrivateRoute>
+            <EditGroup />
+          </PrivateRoute>
+        }
+      />
 
       {/* Payout Routes */}
       <Route path="/payouts" element={<PrivateRoute><PayoutsDashboard /></PrivateRoute>} />
