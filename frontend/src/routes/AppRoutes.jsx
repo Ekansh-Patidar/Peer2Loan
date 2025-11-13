@@ -8,6 +8,10 @@ import Login from '../pages/Auth/Login';
 import Register from '../pages/Auth/Register';
 import Profile from '../pages/Auth/Profile';
 
+// Component Demo Pages
+import ComponentShowcase from '../components/ComponentShowcase';
+import TestComponents from '../pages/TestComponents';
+
 // Dashboard Pages (Placeholder - will be created by Member 4)
 // import AdminDashboard from '../pages/Dashboard/AdminDashboard';
 // import MemberDashboard from '../pages/Dashboard/MemberDashboard';
@@ -83,6 +87,14 @@ const AppRoutes = () => {
         }
       />
 
+      {/* Component Demo Routes */}
+      <Route path="/showcase" element={<ComponentShowcase />} />
+      <Route path="/test" element={<TestComponents />} />
+
+      {/* Group Routes - Uncomment when Member 2 completes */}
+      {/* <Route path="/groups" element={<PrivateRoute><GroupList /></PrivateRoute>} />
+      <Route path="/groups/create" element={<PrivateRoute><CreateGroup /></PrivateRoute>} />
+      <Route path="/groups/:groupId" element={<PrivateRoute><GroupDetails /></PrivateRoute>} /> */}
       {/* Group Routes */}
       <Route
         path="/groups"

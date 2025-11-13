@@ -1,0 +1,7 @@
+<svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="30" cy="30" r="25" fill="#2196F3" opacity="0.1"/>
+  <circle cx="30" cy="30" r="20" fill="#2196F3" opacity="0.2"/>
+  <path d="M30 15C21.716 15 15 21.716 15 30C15 38.284 21.716 45 30 45C38.284 45 45 38.284 45 30C45 21.716 38.284 15 30 15ZM30 18C36.627 18 42 23.373 42 30C42 36.627 36.627 42 30 42C23.373 42 18 36.627 18 30C18 23.373 23.373 18 30 18Z" fill="#2196F3"/>
+  <path d="M27 25H33V27H27V25ZM27 29H33V31H27V29ZM27 33H33V35H27V33Z" fill="#2196F3"/>
+  <text x="55" y="38" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#2196F3">Peer2Loan</text>
+</svg>
