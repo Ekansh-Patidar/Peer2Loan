@@ -1,12 +1,19 @@
 import axios from 'axios';
 import { API_URL, API_TIMEOUT, STORAGE_KEYS } from '../utils/constants';
 
+// Debug: Log API URL
+console.log('API Configuration:', {
+  API_URL,
+  API_TIMEOUT,
+  env: import.meta.env.VITE_API_URL
+});
+
 /**
  * Create axios instance
  */
 const api = axios.create({
-  baseURL: API_URL,
-  timeout: API_TIMEOUT,
+  baseURL: API_URL || 'http://localhost:5000/api/v1',
+  timeout: API_TIMEOUT || 30000,
   headers: {
     'Content-Type': 'application/json',
   },

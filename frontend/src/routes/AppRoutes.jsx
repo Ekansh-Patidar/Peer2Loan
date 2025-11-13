@@ -12,6 +12,23 @@ import Profile from '../pages/Auth/Profile';
 import ComponentShowcase from '../components/ComponentShowcase';
 import TestComponents from '../pages/TestComponents';
 
+// Dashboard Pages
+import { AdminDashboard, MemberDashboard, OverviewDashboard } from '../pages/Dashboard';
+
+// Group Pages
+import { GroupsDashboard } from '../pages/Groups';
+
+// Payment Pages
+import { PaymentsDashboard } from '../pages/Payments';
+
+// Report Pages
+import { GroupLedger, MemberLedger, MonthlySummary, AuditLog, ReportsDashboard } from '../pages/Reports';
+
+// Member Pages
+import { MembersDashboard } from '../pages/Members';
+
+// Payout Pages
+import { PayoutsDashboard } from '../pages/Payouts';
 // Dashboard Pages (Placeholder - will be created by Member 4)
 // import AdminDashboard from '../pages/Dashboard/AdminDashboard';
 // import MemberDashboard from '../pages/Dashboard/MemberDashboard';
@@ -64,7 +81,7 @@ const AppRoutes = () => {
         path="/"
         element={
           <PrivateRoute>
-            <TempDashboard />
+            <OverviewDashboard />
           </PrivateRoute>
         }
       />
@@ -73,7 +90,7 @@ const AppRoutes = () => {
         path="/dashboard"
         element={
           <PrivateRoute>
-            <TempDashboard />
+            <OverviewDashboard />
           </PrivateRoute>
         }
       />
@@ -91,6 +108,19 @@ const AppRoutes = () => {
       <Route path="/showcase" element={<ComponentShowcase />} />
       <Route path="/test" element={<TestComponents />} />
 
+      {/* Group Routes */}
+      <Route path="/groups" element={<PrivateRoute><GroupsDashboard /></PrivateRoute>} />
+
+      {/* Payment Routes */}
+      <Route path="/payments" element={<PrivateRoute><PaymentsDashboard /></PrivateRoute>} />
+      <Route path="/payments/history" element={<PrivateRoute><PaymentsDashboard /></PrivateRoute>} />
+
+      {/* Dashboard Routes */}
+      <Route path="/groups/:groupId/dashboard" element={<PrivateRoute><AdminDashboard /></PrivateRoute>} />
+      <Route path="/groups/:groupId/member-dashboard" element={<PrivateRoute><MemberDashboard /></PrivateRoute>} />
+
+      {/* Member Routes */}
+      <Route path="/members" element={<PrivateRoute><MembersDashboard /></PrivateRoute>} />
       {/* Group Routes - Uncomment when Member 2 completes */}
       {/* <Route path="/groups" element={<PrivateRoute><GroupList /></PrivateRoute>} />
       <Route path="/groups/create" element={<PrivateRoute><CreateGroup /></PrivateRoute>} />
@@ -129,13 +159,15 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Payment Routes - Uncomment when Member 3 completes */}
-      {/* <Route path="/payments" element={<PrivateRoute><RecordPayment /></PrivateRoute>} />
-      <Route path="/payments/history" element={<PrivateRoute><PaymentHistory /></PrivateRoute>} /> */}
+      {/* Payout Routes */}
+      <Route path="/payouts" element={<PrivateRoute><PayoutsDashboard /></PrivateRoute>} />
 
-      {/* Report Routes - Uncomment when Member 4 completes */}
-      {/* <Route path="/reports/group/:groupId" element={<PrivateRoute><GroupLedger /></PrivateRoute>} />
-      <Route path="/reports/member/:memberId" element={<PrivateRoute><MemberLedger /></PrivateRoute>} /> */}
+      {/* Report Routes */}
+      <Route path="/reports" element={<PrivateRoute><ReportsDashboard /></PrivateRoute>} />
+      <Route path="/groups/:groupId/ledger" element={<PrivateRoute><GroupLedger /></PrivateRoute>} />
+      <Route path="/members/:memberId/ledger" element={<PrivateRoute><MemberLedger /></PrivateRoute>} />
+      <Route path="/groups/:groupId/summary" element={<PrivateRoute><MonthlySummary /></PrivateRoute>} />
+      <Route path="/groups/:groupId/audit" element={<PrivateRoute><AuditLog /></PrivateRoute>} />
 
       {/* Fallback route */}
       <Route path="*" element={<Navigate to="/" replace />} />
