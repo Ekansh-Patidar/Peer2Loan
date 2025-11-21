@@ -1,75 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout';
-import { Card, Button, Table, Alert, Input } from '../../components/common';
+import { Card, Button, Table, Alert, Loader } from '../../components/common';
 import useAuth from '../../hooks/useAuth';
+import usePayouts from '../../hooks/usePayouts';
 import '../Groups/Groups.css';
 
 /**
  * PayoutsDashboard - Payouts management page
- * This is a placeholder layout ready for backend integration
  */
 const PayoutsDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { payouts, loading, error, fetchAllPayouts } = usePayouts();
   const [filterStatus, setFilterStatus] = useState('all');
 
-  // Placeholder data - will be replaced with API calls
-  const payouts = [
-    {
-      id: '1',
-      groupName: 'Family Savings Group',
-      groupId: '1',
-      cycleNumber: 2,
-      beneficiaryName: 'John Doe',
-      beneficiaryId: '1',
-      amount: 50000,
-      scheduledDate: '2025-10-15',
-      status: 'completed',
-      completedDate: '2025-10-15',
-      paymentMode: 'bank_transfer',
-      transactionId: 'TXN123456789',
-    },
-    {
-      id: '2',
-      groupName: 'Friends Investment Circle',
-      groupId: '2',
-      cycleNumber: 5,
-      beneficiaryName: 'Jane Smith',
-      beneficiaryId: '2',
-      amount: 80000,
-      scheduledDate: '2025-11-20',
-      status: 'scheduled',
-      paymentMode: 'upi',
-    },
-    {
-      id: '3',
-      groupName: 'Office Colleagues Fund',
-      groupId: '3',
-      cycleNumber: 1,
-      beneficiaryName: 'Alice Brown',
-      beneficiaryId: '3',
-      amount: 18000,
-      scheduledDate: '2025-11-18',
-      status: 'processing',
-      paymentMode: 'bank_transfer',
-    },
-    {
-      id: '4',
-      groupName: 'Family Savings Group',
-      groupId: '1',
-      cycleNumber: 1,
-      beneficiaryName: 'Bob Wilson',
-      beneficiaryId: '4',
-      amount: 50000,
-      scheduledDate: '2025-09-15',
-      status: 'failed',
-      failureReason: 'Insufficient funds in group account',
-      paymentMode: 'bank_transfer',
-    },
-  ];
+  useEffect(() => {
+    fetchAllPayouts();
+  }, [fetchAllPayouts]);
 
-  const filteredPayouts = payouts.filter((payout) =>
+  if (loading) {
+    return (
+      <DashboardLayout user={user} onLogout={logout}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
+          <Loader variant="spinner" size="large" text="Loading payouts..." />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const payoutList = Array.isArray(payouts) ? payouts : [];
+  const filteredPayouts = payoutList.filter((payout) =>
     filterStatus === 'all' ? true : payout.status === filterStatus
   );
 
@@ -205,11 +166,11 @@ const PayoutsDashboard = () => {
 
   // Calculate stats
   const stats = {
-    totalPayouts: payouts.length,
-    completed: payouts.filter((p) => p.status === 'completed').length,
-    scheduled: payouts.filter((p) => p.status === 'scheduled').length,
-    processing: payouts.filter((p) => p.status === 'processing').length,
-    totalAmount: payouts
+    totalPayouts: payoutList.length,
+    completed: payoutList.filter((p) => p.status === 'completed').length,
+    scheduled: payoutList.filter((p) => p.status === 'scheduled').length,
+    processing: payoutList.filter((p) => p.status === 'processing').length,
+    totalAmount: payoutList
       .filter((p) => p.status === 'completed')
       .reduce((sum, p) => sum + p.amount, 0),
   };
@@ -232,10 +193,12 @@ const PayoutsDashboard = () => {
           </Button>
         </div>
 
-        {/* Info Alert */}
-        <Alert type="info">
-          This is a placeholder layout. Backend integration will be added by other team members.
-        </Alert>
+        {/* Error Alert */}
+        {error && (
+          <Alert type="error" closable>
+            {error}
+          </Alert>
+        )}
 
         {/* Stats Cards */}
         <div className="payments-stats-grid">

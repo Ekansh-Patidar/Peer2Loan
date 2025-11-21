@@ -260,29 +260,49 @@ const inviteMember = async (groupId, email, turnNumber) => {
     throw ApiError.badRequest('Group is full');
   }
 
+  // Auto-assign turn number if not provided
+  let assignedTurnNumber = turnNumber;
+  if (!assignedTurnNumber) {
+    // Find the next available turn number
+    const existingMembers = await Member.find({ group: groupId }).sort({ turnNumber: 1 });
+    const usedTurnNumbers = existingMembers.map(m => m.turnNumber);
+    
+    // Find the first available turn number from 1 to memberCount
+    for (let i = 1; i <= group.memberCount; i++) {
+      if (!usedTurnNumbers.includes(i)) {
+        assignedTurnNumber = i;
+        break;
+      }
+    }
+    
+    if (!assignedTurnNumber) {
+      throw ApiError.badRequest('No available turn numbers');
+    }
+  }
+
   // Check if turn number is already taken
   const turnTaken = await Member.findOne({
     group: groupId,
-    turnNumber,
+    turnNumber: assignedTurnNumber,
   });
 
   if (turnTaken) {
-    throw ApiError.conflict(`Turn number ${turnNumber} is already taken`);
+    throw ApiError.conflict(`Turn number ${assignedTurnNumber} is already taken`);
   }
 
   // Create member
   const member = await Member.create({
     user: user._id,
     group: groupId,
-    turnNumber,
+    turnNumber: assignedTurnNumber,
     status: MEMBER_STATUS.INVITED,
   });
 
   // Add to turn order
   group.turnOrder.push({
     memberId: member._id,
-    turnNumber,
-    scheduledMonth: turnNumber,
+    turnNumber: assignedTurnNumber,
+    scheduledMonth: assignedTurnNumber,
   });
   await group.save();
 

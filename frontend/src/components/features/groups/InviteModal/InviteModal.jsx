@@ -3,6 +3,7 @@ import './InviteModal.css';
 
 const InviteModal = ({ isOpen, onClose, onInvite, groupId }) => {
   const [email, setEmail] = useState('');
+  const [turnNumber, setTurnNumber] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleInvite = async () => {
@@ -10,8 +11,9 @@ const InviteModal = ({ isOpen, onClose, onInvite, groupId }) => {
 
     setLoading(true);
     try {
-      await onInvite(groupId, email);
+      await onInvite(groupId, email, turnNumber || null);
       setEmail('');
+      setTurnNumber('');
       onClose();
     } catch (error) {
       console.error('Invite error:', error);
@@ -39,6 +41,19 @@ const InviteModal = ({ isOpen, onClose, onInvite, groupId }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter member's email"
+              disabled={loading}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="turnNumber">Turn Number (Optional)</label>
+            <input
+              type="number"
+              id="turnNumber"
+              value={turnNumber}
+              onChange={(e) => setTurnNumber(e.target.value)}
+              placeholder="Leave empty for auto-assignment"
+              min="1"
               disabled={loading}
             />
           </div>

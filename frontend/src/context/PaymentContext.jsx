@@ -5,7 +5,7 @@
 import React, { createContext, useState, useCallback } from 'react';
 import paymentService from '../services/paymentService';
 import payoutService from '../services/payoutService';
-import { useNotification } from '../hooks/useNotification';
+import useNotification from '../hooks/useNotification';
 
 export const PaymentContext = createContext();
 

@@ -14,9 +14,12 @@ export const GroupProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       const response = await groupService.getAllGroups();
-      setGroups(response.data);
+      // Handle different response structures
+      const groupsData = response.data?.groups || response.groups || response.data || [];
+      setGroups(Array.isArray(groupsData) ? groupsData : []);
     } catch (err) {
       setError(err.message);
+      setGroups([]);
     } finally {
       setLoading(false);
     }
@@ -27,9 +30,14 @@ export const GroupProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       const response = await groupService.getGroupById(groupId);
-      setCurrentGroup(response.data);
+      // Handle different response structures
+      const groupData = response.data?.group || response.group || response.data;
+      setCurrentGroup(groupData);
+      return groupData;
     } catch (err) {
       setError(err.message);
+      setCurrentGroup(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -40,8 +48,9 @@ export const GroupProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       const response = await groupService.createGroup(groupData);
-      setGroups(prev => [...prev, response.data]);
-      return { success: true, data: response.data };
+      const newGroup = response.data?.group || response.group || response.data;
+      setGroups(prev => [...prev, newGroup]);
+      return { success: true, data: newGroup };
     } catch (err) {
       setError(err.message);
       return { success: false, error: err.message };

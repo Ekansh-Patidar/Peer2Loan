@@ -1,70 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout';
-import { Card, Button, Table, Alert, Input } from '../../components/common';
+import { Card, Button, Table, Alert, Loader } from '../../components/common';
 import useAuth from '../../hooks/useAuth';
+import { usePayments } from '../../hooks/usePayments';
 import '../Groups/Groups.css';
 
 /**
  * PaymentsDashboard - Main payments management page
- * This is a placeholder layout ready for backend integration
  */
 const PaymentsDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { payments, loading, error, fetchMemberPayments } = usePayments();
   const [filterStatus, setFilterStatus] = useState('all');
 
-  // Placeholder data - will be replaced with API calls
-  const payments = [
-    {
-      id: '1',
-      groupName: 'Family Savings Group',
-      cycleNumber: 3,
-      amount: 5000,
-      dueDate: '2025-11-20',
-      status: 'pending',
-      type: 'contribution',
-    },
-    {
-      id: '2',
-      groupName: 'Friends Investment Circle',
-      cycleNumber: 5,
-      amount: 10000,
-      dueDate: '2025-11-15',
-      status: 'paid',
-      paidDate: '2025-11-10',
-      type: 'contribution',
-    },
-    {
-      id: '3',
-      groupName: 'Office Colleagues Fund',
-      cycleNumber: 2,
-      amount: 3000,
-      dueDate: '2025-11-25',
-      status: 'pending',
-      type: 'contribution',
-    },
-    {
-      id: '4',
-      groupName: 'Family Savings Group',
-      cycleNumber: 2,
-      amount: 50000,
-      receivedDate: '2025-10-15',
-      status: 'received',
-      type: 'payout',
-    },
-  ];
+  useEffect(() => {
+    if (user?._id) {
+      // Fetch payments for the current user
+      fetchMemberPayments(user._id);
+    }
+  }, [user, fetchMemberPayments]);
 
-  const filteredPayments = payments.filter((payment) =>
+  const paymentList = Array.isArray(payments) ? payments : [];
+  const filteredPayments = paymentList.filter((payment) =>
     filterStatus === 'all' ? true : payment.status === filterStatus
   );
 
+  if (loading && paymentList.length === 0) {
+    return (
+      <DashboardLayout user={user} onLogout={logout}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
+          <Loader variant="spinner" size="large" text="Loading payments..." />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   const getStatusBadge = (status) => {
     const colors = {
-      paid: { bg: '#e8f5e9', color: '#2e7d32' },
+      confirmed: { bg: '#e8f5e9', color: '#2e7d32' },
       pending: { bg: '#fff3e0', color: '#f57c00' },
       late: { bg: '#ffebee', color: '#c62828' },
-      received: { bg: '#e3f2fd', color: '#1976d2' },
+      rejected: { bg: '#ffebee', color: '#c62828' },
     };
     const style = colors[status] || colors.pending;
     return (
@@ -87,12 +65,11 @@ const PaymentsDashboard = () => {
   const columns = [
     {
       title: 'Group',
-      dataIndex: 'groupName',
-      key: 'groupName',
-      render: (name, record) => (
+      key: 'group',
+      render: (_, record) => (
         <div>
-          <div style={{ fontWeight: '600', color: '#1a1a1a' }}>{name}</div>
-          <div style={{ fontSize: '12px', color: '#666' }}>Cycle {record.cycleNumber}</div>
+          <div style={{ fontWeight: '600', color: '#1a1a1a' }}>{record.group?.name || 'Unknown'}</div>
+          <div style={{ fontSize: '12px', color: '#666' }}>Cycle {record.cycle?.cycleNumber || 'N/A'}</div>
         </div>
       ),
     },
@@ -142,12 +119,12 @@ const PaymentsDashboard = () => {
       title: 'Date',
       key: 'date',
       render: (_, record) => {
-        if (record.status === 'paid') {
+        if (record.status === 'confirmed') {
           return (
             <div>
-              <div style={{ fontSize: '13px', color: '#666' }}>Paid on</div>
+              <div style={{ fontSize: '13px', color: '#666' }}>Confirmed on</div>
               <div style={{ fontSize: '14px', fontWeight: '600' }}>
-                {new Date(record.paidDate).toLocaleDateString()}
+                {new Date(record.confirmedAt || record.updatedAt).toLocaleDateString()}
               </div>
             </div>
           );
@@ -157,16 +134,16 @@ const PaymentsDashboard = () => {
             <div>
               <div style={{ fontSize: '13px', color: '#666' }}>Received on</div>
               <div style={{ fontSize: '14px', fontWeight: '600' }}>
-                {new Date(record.receivedDate).toLocaleDateString()}
+                {new Date(record.receivedDate || record.createdAt).toLocaleDateString()}
               </div>
             </div>
           );
         }
         return (
           <div>
-            <div style={{ fontSize: '13px', color: '#666' }}>Due on</div>
+            <div style={{ fontSize: '13px', color: '#666' }}>Recorded on</div>
             <div style={{ fontSize: '14px', fontWeight: '600' }}>
-              {new Date(record.dueDate).toLocaleDateString()}
+              {new Date(record.createdAt).toLocaleDateString()}
             </div>
           </div>
         );
@@ -177,12 +154,7 @@ const PaymentsDashboard = () => {
       key: 'actions',
       render: (_, record) => (
         <div style={{ display: 'flex', gap: '8px' }}>
-          {record.status === 'pending' && record.type === 'contribution' && (
-            <Button size="small" variant="success" onClick={() => alert('Payment feature coming soon!')}>
-              Pay Now
-            </Button>
-          )}
-          <Button size="small" variant="outline" onClick={() => alert('View details coming soon!')}>
+          <Button size="small" variant="outline" onClick={() => navigate(`/payments/${record._id}`)}>
             View
           </Button>
         </div>
@@ -192,13 +164,13 @@ const PaymentsDashboard = () => {
 
   // Calculate stats
   const stats = {
-    totalPending: payments.filter((p) => p.status === 'pending' && p.type === 'contribution').length,
-    totalPaid: payments.filter((p) => p.status === 'paid').length,
-    pendingAmount: payments
+    totalPending: paymentList.filter((p) => p.status === 'pending' && p.type === 'contribution').length,
+    totalPaid: paymentList.filter((p) => p.status === 'confirmed').length,
+    pendingAmount: paymentList
       .filter((p) => p.status === 'pending' && p.type === 'contribution')
       .reduce((sum, p) => sum + p.amount, 0),
-    paidAmount: payments
-      .filter((p) => p.status === 'paid')
+    paidAmount: paymentList
+      .filter((p) => p.status === 'confirmed')
       .reduce((sum, p) => sum + p.amount, 0),
   };
 
@@ -220,10 +192,12 @@ const PaymentsDashboard = () => {
           </Button>
         </div>
 
-        {/* Info Alert */}
-        <Alert type="info">
-          This is a placeholder layout. Backend integration will be added by other team members.
-        </Alert>
+        {/* Error Alert */}
+        {error && (
+          <Alert type="error" closable>
+            {error}
+          </Alert>
+        )}
 
         {/* Stats Cards */}
         <div className="payments-stats-grid">
@@ -278,21 +252,21 @@ const PaymentsDashboard = () => {
         {stats.totalPending > 0 && (
           <Card title="Pending Payments" subtitle="Action required">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-              {payments
+              {paymentList
                 .filter((p) => p.status === 'pending' && p.type === 'contribution')
                 .map((payment) => (
-                  <div key={payment.id} className="payment-card">
+                  <div key={payment._id} className="payment-card">
                     <div className="payment-card-header">
                       <div>
-                        <div className="payment-card-group">{payment.groupName}</div>
-                        <div className="payment-card-cycle">Cycle {payment.cycleNumber}</div>
+                        <div className="payment-card-group">{payment.group?.name || 'Unknown Group'}</div>
+                        <div className="payment-card-cycle">Cycle {payment.cycle?.cycleNumber || 'N/A'}</div>
                       </div>
                       {getStatusBadge(payment.status)}
                     </div>
                     <div className="payment-card-body">
                       <div className="payment-card-amount">₹{payment.amount.toLocaleString()}</div>
                       <div className="payment-card-due">
-                        Due: {new Date(payment.dueDate).toLocaleDateString()}
+                        Due: {new Date(payment.dueDate || payment.createdAt).toLocaleDateString()}
                       </div>
                     </div>
                     <div className="payment-card-footer">
@@ -300,7 +274,7 @@ const PaymentsDashboard = () => {
                         variant="success"
                         size="small"
                         style={{ width: '100%' }}
-                        onClick={() => alert('Payment feature coming soon!')}
+                        onClick={() => navigate(`/payments/record?groupId=${payment.group?._id}&cycleId=${payment.cycle?._id}`)}
                       >
                         Pay Now
                       </Button>

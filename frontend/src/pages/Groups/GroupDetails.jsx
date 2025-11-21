@@ -2,13 +2,18 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGroups } from '../../hooks/useGroups';
 import { useMembers } from '../../hooks/useMembers';
+import useAuth from '../../hooks/useAuth';
+import { DashboardLayout } from '../../components/layout';
+import { Card, Button, Loader } from '../../components/common';
 import MemberList from '../../components/features/groups/MemberList/MemberList';
 import InviteModal from '../../components/features/groups/InviteModal/InviteModal';
 import TurnOrderView from '../../components/features/groups/TurnOrderView/TurnOrderView';
+import './GroupDetails.css';
 
 const GroupDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const { currentGroup, selectGroup, deleteExistingGroup } = useGroups();
   const { members, loading: membersLoading, removeMember } = useMembers(id);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -17,10 +22,15 @@ const GroupDetails = () => {
     selectGroup(id);
   }, [id, selectGroup]);
 
-  const handleInvite = async (groupId, email) => {
-    // This would call the service, but for now just close modal
-    console.log('Inviting:', email, 'to group:', groupId);
-    // await groupService.sendInvitation(groupId, email);
+  const handleInvite = async (groupId, email, turnNumber) => {
+    try {
+      const { groupService } = await import('../../services/groupService');
+      await groupService.sendInvitation(groupId, email, turnNumber);
+      setShowInviteModal(false);
+      alert('Invitation sent successfully!');
+    } catch (error) {
+      alert('Failed to send invitation: ' + error.message);
+    }
   };
 
   const handleDeleteGroup = async () => {
@@ -34,10 +44,19 @@ const GroupDetails = () => {
     }
   };
 
-  if (!currentGroup) return <div className="loading">Loading group details...</div>;
+  if (!currentGroup) {
+    return (
+      <DashboardLayout user={user} onLogout={logout}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
+          <Loader variant="spinner" size="large" text="Loading group details..." />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
-    <div className="group-details-page">
+    <DashboardLayout user={user} onLogout={logout}>
+      <div className="group-details-page">
       <div className="page-header">
         <div className="group-title">
           <h1>{currentGroup.name}</h1>
@@ -106,7 +125,7 @@ const GroupDetails = () => {
               members={members}
               onRemove={removeMember}
               canEdit={true}
-              currentUserId="current-user-id" // This should come from auth context
+              currentUserId={user?._id}
             />
           )}
         </div>
@@ -120,13 +139,14 @@ const GroupDetails = () => {
         </div>
       </div>
 
-      <InviteModal
-        isOpen={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
-        onInvite={handleInvite}
-        groupId={id}
-      />
-    </div>
+        <InviteModal
+          isOpen={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          onInvite={handleInvite}
+          groupId={id}
+        />
+      </div>
+    </DashboardLayout>
   );
 };
 

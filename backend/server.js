@@ -10,44 +10,64 @@ require('dotenv').config();
 
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB
-connectDB();
+let server;
 
-// Start cron jobs
-if (process.env.ENABLE_REMINDERS === 'true') {
-  startCronJobs();
-  logger.info('Reminder cron jobs started successfully');
-}
+// Start server function
+const startServer = async () => {
+  try {
+    // Connect to MongoDB
+    await connectDB();
 
-if (process.env.ENABLE_PENALTY_CHECKS === 'true') {
-  startPenaltyCronJobs();
-  logger.info('Penalty cron jobs started successfully');
-}
+    // Start cron jobs
+    if (process.env.ENABLE_REMINDERS === 'true') {
+      startCronJobs();
+      logger.info('Reminder cron jobs started successfully');
+    }
 
-// Always start cycle manager jobs
-startCycleManagerJobs();
-logger.info('Cycle manager jobs started successfully');
+    if (process.env.ENABLE_PENALTY_CHECKS === 'true') {
+      startPenaltyCronJobs();
+      logger.info('Penalty cron jobs started successfully');
+    }
 
-// Start server
-const server = app.listen(PORT, () => {
-  logger.info(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-  logger.info(`📝 API Documentation: http://localhost:${PORT}/api/v1/health`);
-});
+    // Always start cycle manager jobs
+    startCycleManagerJobs();
+    logger.info('Cycle manager jobs started successfully');
+
+    // Start server
+    server = app.listen(PORT, () => {
+      logger.info(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+      logger.info(`📝 API Documentation: http://localhost:${PORT}/api/v1/health`);
+    });
+
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   logger.error('UNHANDLED REJECTION! 💥 Shutting down...', err);
-  server.close(() => {
+  if (server) {
+    server.close(() => {
+      process.exit(1);
+    });
+  } else {
     process.exit(1);
-  });
+  }
 });
 
 // Handle SIGTERM
 process.on('SIGTERM', () => {
   logger.info('👋 SIGTERM RECEIVED. Shutting down gracefully');
-  server.close(() => {
-    logger.info('💥 Process terminated!');
-  });
+  if (server) {
+    server.close(() => {
+      logger.info('💥 Process terminated!');
+    });
+  }
 });
 
 module.exports = server;

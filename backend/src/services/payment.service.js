@@ -186,6 +186,47 @@ const getMemberPayments = async (memberId, options = {}) => {
 };
 
 /**
+ * Get group's payment history
+ */
+const getGroupPayments = async (groupId, options = {}) => {
+  const { page = 1, limit = 50, status } = options;
+  const skip = (page - 1) * limit;
+
+  const query = { group: groupId };
+  if (status) {
+    query.status = status;
+  }
+
+  const [payments, total] = await Promise.all([
+    Payment.find(query)
+      .populate('member', 'user turnNumber')
+      .populate({
+        path: 'member',
+        populate: {
+          path: 'user',
+          select: 'name email'
+        }
+      })
+      .populate('cycle', 'cycleNumber startDate endDate')
+      .populate('group', 'name')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Payment.countDocuments(query),
+  ]);
+
+  return {
+    payments,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    },
+  };
+};
+
+/**
  * Confirm payment (admin action)
  */
 const confirmPayment = async (paymentId, adminId, adminRemarks) => {
@@ -250,6 +291,7 @@ module.exports = {
   getPaymentById,
   getCyclePayments,
   getMemberPayments,
+  getGroupPayments,
   confirmPayment,
   markPaymentLate,
 };

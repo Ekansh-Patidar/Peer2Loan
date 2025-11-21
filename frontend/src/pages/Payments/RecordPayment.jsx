@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Container, Paper, Typography, Box, Alert } from '@mui/material';
+import { DashboardLayout } from '../../components/layout';
+import { Card, Button, Alert, Loader } from '../../components/common';
+import useAuth from '../../hooks/useAuth';
 import { usePayments } from '../../hooks/usePayments';
 import { useGroups } from '../../hooks/useGroups';
 import PaymentForm from '../../components/features/payments/PaymentForm/PaymentForm';
@@ -8,6 +10,7 @@ import PaymentForm from '../../components/features/payments/PaymentForm/PaymentF
 const RecordPayment = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user, logout } = useAuth();
   const { recordPayment, loading } = usePayments();
   const { fetchGroupById, currentGroup } = useGroups();
   
@@ -38,43 +41,43 @@ const RecordPayment = () => {
 
   if (!groupId || !cycleId) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Alert severity="error">
+      <DashboardLayout user={user} onLogout={logout}>
+        <Alert type="error">
           Missing group or cycle information. Please navigate from the dashboard.
         </Alert>
-      </Container>
+      </DashboardLayout>
     );
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography variant="h4" fontWeight="bold" gutterBottom>
-          Record Payment
-        </Typography>
-        
-        {currentGroup && (
-          <Typography variant="body2" color="text.secondary" mb={3}>
-            Group: <strong>{currentGroup.name}</strong> • 
-            Monthly Contribution: <strong>₹{currentGroup.monthlyContribution}</strong>
-          </Typography>
-        )}
-        
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
-        
-        <PaymentForm
-          groupId={groupId}
-          cycleId={cycleId}
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          loading={loading}
-        />
-      </Paper>
-    </Container>
+    <DashboardLayout user={user} onLogout={logout}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <Card>
+          <h1>Record Payment</h1>
+          
+          {currentGroup && (
+            <p style={{ color: '#666', marginBottom: '24px' }}>
+              Group: <strong>{currentGroup.name}</strong> • 
+              Monthly Contribution: <strong>₹{currentGroup.monthlyContribution}</strong>
+            </p>
+          )}
+          
+          {error && (
+            <Alert type="error" style={{ marginBottom: '24px' }}>
+              {error}
+            </Alert>
+          )}
+          
+          <PaymentForm
+            groupId={groupId}
+            cycleId={cycleId}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            loading={loading}
+          />
+        </Card>
+      </div>
+    </DashboardLayout>
   );
 };
 

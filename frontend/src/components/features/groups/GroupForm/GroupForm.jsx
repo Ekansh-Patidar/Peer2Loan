@@ -5,9 +5,20 @@ const GroupForm = ({ initialData = {}, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: initialData.name || '',
     monthlyContribution: initialData.monthlyContribution || '',
-    groupSize: initialData.groupSize || '',
+    memberCount: initialData.memberCount || initialData.groupSize || '',
     startDate: initialData.startDate || '',
-    description: initialData.description || ''
+    description: initialData.description || '',
+    currency: initialData.currency || 'INR',
+    turnOrderType: initialData.turnOrderType || 'fixed',
+    paymentWindow: initialData.paymentWindow || {
+      startDay: 1,
+      endDay: 7
+    },
+    penaltyRules: initialData.penaltyRules || {
+      lateFee: 100,
+      gracePeriodDays: 2,
+      defaultThreshold: 3
+    }
   });
 
   const [errors, setErrors] = useState({});
@@ -28,12 +39,12 @@ const GroupForm = ({ initialData = {}, onSubmit, onCancel }) => {
       newErrors.monthlyContribution = 'Contribution must be at least ₹100';
     }
 
-    if (!formData.groupSize) {
-      newErrors.groupSize = 'Group size is required';
-    } else if (formData.groupSize < 2) {
-      newErrors.groupSize = 'Group must have at least 2 members';
-    } else if (formData.groupSize > 50) {
-      newErrors.groupSize = 'Group cannot exceed 50 members';
+    if (!formData.memberCount) {
+      newErrors.memberCount = 'Group size is required';
+    } else if (formData.memberCount < 3) {
+      newErrors.memberCount = 'Group must have at least 3 members';
+    } else if (formData.memberCount > 50) {
+      newErrors.memberCount = 'Group cannot exceed 50 members';
     }
 
     if (!formData.startDate) {
@@ -117,22 +128,22 @@ const GroupForm = ({ initialData = {}, onSubmit, onCancel }) => {
       </div>
 
       <div className="form-group">
-        <label htmlFor="groupSize">Group Size *</label>
+        <label htmlFor="memberCount">Group Size *</label>
         <input
           type="number"
-          id="groupSize"
-          name="groupSize"
-          value={formData.groupSize}
+          id="memberCount"
+          name="memberCount"
+          value={formData.memberCount}
           onChange={handleChange}
-          className={errors.groupSize ? 'error' : ''}
+          className={errors.memberCount ? 'error' : ''}
           placeholder="10"
-          min="2"
+          min="3"
           max="50"
         />
-        {errors.groupSize && (
-          <span className="error-message">{errors.groupSize}</span>
+        {errors.memberCount && (
+          <span className="error-message">{errors.memberCount}</span>
         )}
-        <small className="help-text">Number of members (2-50)</small>
+        <small className="help-text">Number of members (3-50)</small>
       </div>
 
       <div className="form-group">
@@ -148,6 +159,22 @@ const GroupForm = ({ initialData = {}, onSubmit, onCancel }) => {
         {errors.startDate && (
           <span className="error-message">{errors.startDate}</span>
         )}
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="turnOrderType">Turn Order Type *</label>
+        <select
+          id="turnOrderType"
+          name="turnOrderType"
+          value={formData.turnOrderType}
+          onChange={handleChange}
+        >
+          <option value="fixed">Fixed Order</option>
+          <option value="random">Random (Lottery)</option>
+          <option value="need_based">Need-Based</option>
+          <option value="lottery">Lottery</option>
+        </select>
+        <small className="help-text">How payout turns will be assigned</small>
       </div>
 
       <div className="form-group">

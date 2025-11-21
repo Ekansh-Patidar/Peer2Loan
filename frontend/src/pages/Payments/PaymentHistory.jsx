@@ -1,27 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import {
-  Container,
-  Paper,
-  Typography,
-  Box,
-  Button,
-  Tabs,
-  Tab,
-  CircularProgress,
-  Alert
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { DashboardLayout } from '../../components/layout';
+import { Card, Button, Loader, Alert } from '../../components/common';
+import useAuth from '../../hooks/useAuth';
 import { usePayments } from '../../hooks/usePayments';
 import { useGroups } from '../../hooks/useGroups';
-import { useAuth } from '../../hooks/useAuth';
 import PaymentHistoryTable from '../../components/features/payments/PaymentHistory/PaymentHistoryTable';
 
 const PaymentHistory = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { 
     payments, 
     loading, 
@@ -33,7 +22,7 @@ const PaymentHistory = () => {
   const groupId = searchParams.get('groupId');
   const memberId = searchParams.get('memberId');
   
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
     if (groupId) {
@@ -44,17 +33,17 @@ const PaymentHistory = () => {
     }
   }, [groupId, memberId, fetchGroupById, fetchGroupPayments, fetchMemberPayments]);
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
+  const handleTabChange = (status) => {
+    setActiveTab(status);
     
     if (groupId) {
       const statusMap = {
-        0: undefined, // All
-        1: 'pending',
-        2: 'confirmed',
-        3: 'late'
+        all: undefined,
+        pending: 'pending',
+        confirmed: 'confirmed',
+        late: 'late'
       };
-      fetchGroupPayments(groupId, { status: statusMap[newValue] });
+      fetchGroupPayments(groupId, { status: statusMap[status] });
     }
   };
 
@@ -70,87 +59,100 @@ const PaymentHistory = () => {
 
   if (loading && payments.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress />
-      </Box>
+      <DashboardLayout user={user} onLogout={logout}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
+          <Loader variant="spinner" size="large" text="Loading payments..." />
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={handleBack}
-            variant="outlined"
-          >
-            Back
-          </Button>
-          <Box>
-            <Typography variant="h4" fontWeight="bold">
-              Payment History
-            </Typography>
+    <DashboardLayout user={user} onLogout={logout}>
+      <div className="payments-dashboard-container">
+        {/* Header */}
+        <div className="payments-dashboard-header">
+          <div>
+            <Button variant="outline" onClick={handleBack} style={{ marginBottom: '16px' }}>
+              ← Back
+            </Button>
+            <h1>Payment History</h1>
             {currentGroup && (
-              <Typography variant="body2" color="text.secondary">
-                {currentGroup.name}
-              </Typography>
+              <p className="payments-dashboard-subtitle">{currentGroup.name}</p>
             )}
-          </Box>
-        </Box>
-        
+          </div>
+          
+          {groupId && (
+            <Button variant="primary" onClick={handleRecordPayment}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Record Payment
+            </Button>
+          )}
+        </div>
+
+        {/* Tabs */}
         {groupId && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleRecordPayment}
-          >
-            Record Payment
-          </Button>
-        )}
-      </Box>
-
-      {/* Tabs */}
-      {groupId && (
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Tabs value={activeTab} onChange={handleTabChange}>
-            <Tab label="All Payments" />
-            <Tab label="Pending" />
-            <Tab label="Confirmed" />
-            <Tab label="Late" />
-          </Tabs>
-        </Box>
-      )}
-
-      {/* Payments Table */}
-      <Paper elevation={2} sx={{ p: 3 }}>
-        {payments.length === 0 ? (
-          <Box textAlign="center" py={8}>
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              No payments found
-            </Typography>
-            <Typography variant="body2" color="text.secondary" mb={3}>
-              Start by recording your first payment
-            </Typography>
-            {groupId && (
+          <Card>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleRecordPayment}
+                variant={activeTab === 'all' ? 'primary' : 'ghost'}
+                size="small"
+                onClick={() => handleTabChange('all')}
               >
-                Record Payment
+                All Payments
               </Button>
-            )}
-          </Box>
-        ) : (
-          <PaymentHistoryTable 
-            payments={payments}
-            groupId={groupId}
-          />
+              <Button
+                variant={activeTab === 'pending' ? 'primary' : 'ghost'}
+                size="small"
+                onClick={() => handleTabChange('pending')}
+              >
+                Pending
+              </Button>
+              <Button
+                variant={activeTab === 'confirmed' ? 'primary' : 'ghost'}
+                size="small"
+                onClick={() => handleTabChange('confirmed')}
+              >
+                Confirmed
+              </Button>
+              <Button
+                variant={activeTab === 'late' ? 'primary' : 'ghost'}
+                size="small"
+                onClick={() => handleTabChange('late')}
+              >
+                Late
+              </Button>
+            </div>
+          </Card>
         )}
-      </Paper>
-    </Container>
+
+        {/* Payments Table */}
+        <Card title="Payments" subtitle={`${payments.length} payment(s)`}>
+          {payments.length === 0 ? (
+            <div className="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '64px', height: '64px', stroke: '#ccc', marginBottom: '16px' }}>
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+              <h3>No payments found</h3>
+              <p>Start by recording your first payment</p>
+              {groupId && (
+                <Button variant="primary" onClick={handleRecordPayment} style={{ marginTop: '16px' }}>
+                  Record Payment
+                </Button>
+              )}
+            </div>
+          ) : (
+            <PaymentHistoryTable 
+              payments={payments}
+              groupId={groupId}
+            />
+          )}
+        </Card>
+      </div>
+    </DashboardLayout>
   );
 };
 

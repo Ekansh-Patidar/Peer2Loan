@@ -44,8 +44,8 @@ export const groupService = {
   },
 
   // Invitation Operations
-  sendInvitation: async (groupId, email) => {
-    const response = await api.post(`/groups/${groupId}/invitations`, { email });
+  sendInvitation: async (groupId, email, turnNumber = null) => {
+    const response = await api.post(`/groups/${groupId}/invite`, { email, turnNumber });
     return response.data;
   },
 

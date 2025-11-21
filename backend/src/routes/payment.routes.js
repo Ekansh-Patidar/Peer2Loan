@@ -31,6 +31,7 @@ router.post(
 // Get payments
 router.get('/cycle/:cycleId', isGroupMember, paymentController.getCyclePayments);
 router.get('/member/:memberId', isGroupMember, paymentController.getMemberPayments);
+router.get('/group/:groupId', isGroupMember, paymentController.getGroupPayments);
 router.get('/:paymentId', paymentIdValidator, validate, isGroupMember, paymentController.getPaymentById);
 
 // Admin actions

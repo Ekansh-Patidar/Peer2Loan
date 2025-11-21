@@ -84,6 +84,25 @@ const getMemberPayments = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Get group's payment history
+ * @route   GET /api/v1/payments/group/:groupId
+ * @access  Private
+ */
+const getGroupPayments = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 50, status } = req.query;
+  const result = await paymentService.getGroupPayments(
+    req.params.groupId,
+    { page: parseInt(page), limit: parseInt(limit), status }
+  );
+
+  return ApiResponse.success(
+    res,
+    result,
+    'Group payments retrieved successfully'
+  );
+});
+
+/**
  * @desc    Confirm payment
  * @route   PUT /api/v1/payments/:paymentId/confirm
  * @access  Private (Organizer only)
@@ -125,6 +144,7 @@ module.exports = {
   getPaymentById,
   getCyclePayments,
   getMemberPayments,
+  getGroupPayments,
   confirmPayment,
   markPaymentLate,
 };
