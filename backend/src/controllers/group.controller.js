@@ -174,11 +174,27 @@ const getGroupStats = asyncHandler(async (req, res) => {
   );
 });
 
+/**
+ * @desc    Delete group
+ * @route   DELETE /api/v1/groups/:groupId
+ * @access  Private (Organizer only)
+ */
+const deleteGroup = asyncHandler(async (req, res) => {
+  await groupService.deleteGroup(req.params.groupId);
+  
+  return ApiResponse.success(
+    res,
+    null,
+    'Group deleted successfully'
+  );
+});
+
 module.exports = {
   createGroup,
   getMyGroups,
   getGroupById,
   updateGroup,
+  deleteGroup,
   activateGroup,
   inviteMember,
   getGroupMembers,

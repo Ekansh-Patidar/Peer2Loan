@@ -8,8 +8,14 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticate);
 
+// Get my invitations (must be before /:memberId)
+router.get('/my-invitations', memberController.getMyInvitations);
+
 // Get member details
 router.get('/:memberId', isGroupMember, memberController.getMemberById);
+
+// Reject invitation
+router.post('/:memberId/reject', memberController.rejectInvitation);
 
 // Update member (self)
 router.put('/:memberId', memberController.updateMember);

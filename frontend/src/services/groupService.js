@@ -28,6 +28,11 @@ export const groupService = {
   },
 
   // Member Operations
+  getGroupMembers: async (groupId) => {
+    const response = await api.get(`/groups/${groupId}/members`);
+    return response.data;
+  },
+
   addMember: async (groupId, userId) => {
     const response = await api.post(`/groups/${groupId}/members`, { userId });
     return response.data;

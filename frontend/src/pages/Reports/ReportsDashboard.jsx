@@ -1,17 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout';
-import { Card, Button, Alert } from '../../components/common';
+import { Card, Button, Alert, Loader } from '../../components/common';
 import useAuth from '../../hooks/useAuth';
+import { useGroups } from '../../hooks/useGroups';
 import '../Groups/Groups.css';
 
 /**
  * ReportsDashboard - Reports hub page
- * This is a placeholder layout ready for backend integration
  */
 const ReportsDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { groups, loading, error, loadGroups } = useGroups();
+  const [selectedGroup, setSelectedGroup] = useState(null);
+
+  useEffect(() => {
+    loadGroups();
+  }, [loadGroups]);
 
   const reportTypes = [
     {
@@ -24,7 +30,13 @@ const ReportsDashboard = () => {
         </svg>
       ),
       color: 'blue',
-      action: () => alert('Select a group to view ledger'),
+      action: () => {
+        if (selectedGroup) {
+          navigate(`/groups/${selectedGroup}/ledger`);
+        } else {
+          alert('Please select a group first');
+        }
+      },
     },
     {
       id: 'member-ledger',
@@ -36,7 +48,9 @@ const ReportsDashboard = () => {
         </svg>
       ),
       color: 'green',
-      action: () => alert('Select a member to view ledger'),
+      action: () => {
+        navigate('/members');
+      },
     },
     {
       id: 'monthly-summary',
@@ -51,7 +65,13 @@ const ReportsDashboard = () => {
         </svg>
       ),
       color: 'purple',
-      action: () => alert('Select a group to view summary'),
+      action: () => {
+        if (selectedGroup) {
+          navigate(`/groups/${selectedGroup}/summary`);
+        } else {
+          alert('Please select a group first');
+        }
+      },
     },
     {
       id: 'audit-log',
@@ -63,9 +83,25 @@ const ReportsDashboard = () => {
         </svg>
       ),
       color: 'orange',
-      action: () => alert('Select a group to view audit log'),
+      action: () => {
+        if (selectedGroup) {
+          navigate(`/groups/${selectedGroup}/audit`);
+        } else {
+          alert('Please select a group first');
+        }
+      },
     },
   ];
+
+  if (loading) {
+    return (
+      <DashboardLayout user={user} onLogout={logout}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
+          <Loader variant="spinner" size="large" text="Loading groups..." />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout user={user} onLogout={logout}>
@@ -77,9 +113,47 @@ const ReportsDashboard = () => {
           </div>
         </div>
 
-        <Alert type="info">
-          This is a placeholder layout. Backend integration will be added by other team members.
-        </Alert>
+        {error && (
+          <Alert type="error" closable>
+            {error}
+          </Alert>
+        )}
+
+        {groups && groups.length > 0 && (
+          <Card>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                Select a Group
+              </label>
+              <select
+                value={selectedGroup || ''}
+                onChange={(e) => setSelectedGroup(e.target.value)}
+                style={{
+                  width: '100%',
+                  maxWidth: '400px',
+                  padding: '10px 12px',
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="">-- Select a group --</option>
+                {groups.map(group => (
+                  <option key={group._id} value={group._id}>
+                    {group.name} ({group.status})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </Card>
+        )}
+
+        {groups && groups.length === 0 && (
+          <Alert type="info">
+            You don't have any groups yet. Create a group first to access reports.
+          </Alert>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
           {reportTypes.map((report) => (

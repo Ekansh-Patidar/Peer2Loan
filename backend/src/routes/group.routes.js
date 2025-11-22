@@ -22,6 +22,7 @@ router.post('/', createGroupValidator, validate, groupController.createGroup);
 router.get('/', groupController.getMyGroups);
 router.get('/:groupId', groupIdValidator, validate, isGroupMember, groupController.getGroupById);
 router.put('/:groupId', updateGroupValidator, validate, isGroupOrganizer, groupController.updateGroup);
+router.delete('/:groupId', groupIdValidator, validate, isGroupOrganizer, groupController.deleteGroup);
 
 // Group actions
 router.post('/:groupId/activate', groupIdValidator, validate, isGroupOrganizer, groupController.activateGroup);

@@ -68,10 +68,10 @@ const getUserGroups = async (userId, options = {}) => {
   const { page = 1, limit = 20, status } = options;
   const skip = (page - 1) * limit;
 
-  // Find groups where user is organizer or member
+  // Find groups where user is organizer or active member (not invited)
   const memberGroups = await Member.find({
     user: userId,
-    status: { $in: [MEMBER_STATUS.ACTIVE, MEMBER_STATUS.INVITED] },
+    status: MEMBER_STATUS.ACTIVE,
   }).select('group');
 
   const groupIds = memberGroups.map((m) => m.group);
@@ -433,11 +433,43 @@ const getGroupStatistics = async (groupId) => {
   };
 };
 
+/**
+ * Delete group
+ */
+const deleteGroup = async (groupId) => {
+  const group = await Group.findById(groupId);
+
+  if (!group) {
+    throw ApiError.notFound('Group not found');
+  }
+
+  // Only allow deletion of draft groups or completed groups
+  if (group.status === GROUP_STATUS.ACTIVE) {
+    throw ApiError.badRequest('Cannot delete an active group. Please complete or cancel the group first.');
+  }
+
+  // Delete all related data
+  await Promise.all([
+    Member.deleteMany({ group: groupId }),
+    Cycle.deleteMany({ group: groupId }),
+    require('../models/Payment.model').deleteMany({ group: groupId }),
+    require('../models/Payout.model').deleteMany({ group: groupId }),
+    require('../models/Penalty.model').deleteMany({ group: groupId }),
+    AuditLog.deleteMany({ group: groupId }),
+  ]);
+
+  // Delete the group
+  await Group.findByIdAndDelete(groupId);
+
+  return { success: true };
+};
+
 module.exports = {
   createGroup,
   getUserGroups,
   getGroupById,
   updateGroup,
+  deleteGroup,
   activateGroup,
   inviteMember,
   getGroupMembers,

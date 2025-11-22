@@ -12,9 +12,14 @@ export const useMembers = (groupId) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await groupService.getGroupById(groupId);
-      setMembers(response.data.members || []);
+      const response = await groupService.getGroupMembers(groupId);
+      console.log('Members API response:', response);
+      // Get all members (including invited ones for group details page)
+      const allMembers = response.data?.members || response.members || [];
+      console.log('All members:', allMembers);
+      setMembers(allMembers);
     } catch (err) {
+      console.error('Error loading members:', err);
       setError(err.message);
     } finally {
       setLoading(false);

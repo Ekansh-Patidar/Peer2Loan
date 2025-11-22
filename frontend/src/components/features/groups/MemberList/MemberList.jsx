@@ -21,25 +21,48 @@ const MemberList = ({ members, onRemove, canEdit = false, currentUserId }) => {
         Members ({members.length})
       </h3>
       <div className="member-items">
-        {members.map((member) => (
-          <div key={member.id} className="member-item">
-            <div className="member-avatar">
-              {member.name.charAt(0).toUpperCase()}
+        {members.map((member) => {
+          const memberId = member._id || member.id;
+          const memberName = member.user?.name || member.name || 'Unknown';
+          const memberRole = member.role || 'member';
+          const memberStatus = member.status || 'active';
+          
+          return (
+            <div key={memberId} className="member-item">
+              <div className="member-avatar">
+                {memberName.charAt(0).toUpperCase()}
+              </div>
+              <div className="member-info">
+                <div className="member-name">
+                  {memberName}
+                  {memberStatus === 'invited' && (
+                    <span style={{ 
+                      marginLeft: '8px', 
+                      fontSize: '11px', 
+                      padding: '2px 8px', 
+                      borderRadius: '8px',
+                      background: '#e3f2fd',
+                      color: '#1976d2'
+                    }}>
+                      INVITED
+                    </span>
+                  )}
+                </div>
+                <div className="member-role">
+                  {memberRole} • Turn #{member.turnNumber || 'N/A'}
+                </div>
+              </div>
+              {canEdit && member.user?._id !== currentUserId && (
+                <button
+                  className="btn-remove"
+                  onClick={() => handleRemove(member)}
+                >
+                  Remove
+                </button>
+              )}
             </div>
-            <div className="member-info">
-              <div className="member-name">{member.name}</div>
-              <div className="member-role">{member.role}</div>
-            </div>
-            {canEdit && member.id !== currentUserId && (
-              <button
-                className="btn-remove"
-                onClick={() => handleRemove(member)}
-              >
-                Remove
-              </button>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

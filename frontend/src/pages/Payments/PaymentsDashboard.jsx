@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout';
 import { Card, Button, Table, Alert, Loader } from '../../components/common';
+import { RecordPaymentModal } from '../../components/features/payments';
 import useAuth from '../../hooks/useAuth';
 import { usePayments } from '../../hooks/usePayments';
+import { useGroups } from '../../hooks/useGroups';
 import '../Groups/Groups.css';
 
 /**
@@ -11,16 +13,30 @@ import '../Groups/Groups.css';
  */
 const PaymentsDashboard = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, logout } = useAuth();
-  const { payments, loading, error, fetchMemberPayments } = usePayments();
+  const { payments = [], loading, error, fetchMyPayments } = usePayments();
+  const { groups } = useGroups();
   const [filterStatus, setFilterStatus] = useState('all');
+  const [showRecordModal, setShowRecordModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
 
   useEffect(() => {
     if (user?._id) {
       // Fetch payments for the current user
-      fetchMemberPayments(user._id);
+      fetchMyPayments();
     }
-  }, [user, fetchMemberPayments]);
+  }, [user, fetchMyPayments]);
+
+  // Check if we should open the modal from URL params
+  useEffect(() => {
+    const groupId = searchParams.get('groupId');
+    const cycleId = searchParams.get('cycleId');
+    if (groupId && cycleId) {
+      setSelectedPayment({ groupId, cycleId });
+      setShowRecordModal(true);
+    }
+  }, [searchParams]);
 
   const paymentList = Array.isArray(payments) ? payments : [];
   const filteredPayments = paymentList.filter((payment) =>
@@ -183,7 +199,16 @@ const PaymentsDashboard = () => {
             <h1>Payments</h1>
             <p className="payments-dashboard-subtitle">Manage your contributions and payouts</p>
           </div>
-          <Button variant="primary" onClick={() => alert('Record payment feature coming soon!')}>
+          <Button 
+            variant="primary" 
+            onClick={() => {
+              if (groups && groups.length > 0) {
+                setShowRecordModal(true);
+              } else {
+                alert('You need to be part of a group to record payments');
+              }
+            }}
+          >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
@@ -242,7 +267,7 @@ const PaymentsDashboard = () => {
               </div>
               <div className="stat-content">
                 <div className="stat-label">Total Transactions</div>
-                <div className="stat-value">{payments.length}</div>
+                <div className="stat-value">{paymentList.length}</div>
               </div>
             </div>
           </Card>
@@ -333,6 +358,28 @@ const PaymentsDashboard = () => {
             </div>
           )}
         </Card>
+
+        {/* Record Payment Modal */}
+        {showRecordModal && (
+          <RecordPaymentModal
+            isOpen={showRecordModal}
+            onClose={() => {
+              setShowRecordModal(false);
+              setSelectedPayment(null);
+              // Clear URL params if they exist
+              if (searchParams.get('groupId')) {
+                navigate('/payments', { replace: true });
+              }
+            }}
+            groupId={selectedPayment?.groupId}
+            cycleId={selectedPayment?.cycleId}
+            amount={selectedPayment?.amount}
+            onSuccess={(payment) => {
+              alert('Payment recorded successfully!');
+              fetchMyPayments();
+            }}
+          />
+        )}
       </div>
     </DashboardLayout>
   );

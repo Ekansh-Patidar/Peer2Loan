@@ -65,6 +65,25 @@ const getCyclePayments = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Get current user's payment history
+ * @route   GET /api/v1/payments/my-payments
+ * @access  Private
+ */
+const getMyPayments = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20 } = req.query;
+  const result = await paymentService.getUserPayments(
+    req.user._id,
+    { page: parseInt(page), limit: parseInt(limit) }
+  );
+
+  return ApiResponse.success(
+    res,
+    result,
+    'Payment history retrieved successfully'
+  );
+});
+
+/**
  * @desc    Get member's payment history
  * @route   GET /api/v1/payments/member/:memberId
  * @access  Private
@@ -143,6 +162,7 @@ module.exports = {
   recordPayment,
   getPaymentById,
   getCyclePayments,
+  getMyPayments,
   getMemberPayments,
   getGroupPayments,
   confirmPayment,

@@ -110,6 +110,28 @@ const AdminDashboard = () => {
             </p>
           </div>
           <div className="dashboard-actions">
+            {group.status === 'draft' && (
+              <Button 
+                variant="success" 
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to activate this group? This will start the first cycle and cannot be undone.')) {
+                    try {
+                      const api = (await import('../../services/api')).default;
+                      await api.post(`/groups/${groupId}/activate`);
+                      alert('Group activated successfully!');
+                      refresh();
+                    } catch (err) {
+                      alert(err.message || 'Failed to activate group');
+                    }
+                  }
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
+                  <path d="M5 3l14 9-14 9V3z" />
+                </svg>
+                Activate Group
+              </Button>
+            )}
             <Button variant="outline" onClick={refresh}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
                 <polyline points="23 4 23 10 17 10" />

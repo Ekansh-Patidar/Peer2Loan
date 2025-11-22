@@ -165,10 +165,68 @@ const getMemberStats = asyncHandler(async (req, res) => {
   );
 });
 
+/**
+ * @desc    Get my invitations
+ * @route   GET /api/v1/members/my-invitations
+ * @access  Private
+ */
+const getMyInvitations = asyncHandler(async (req, res) => {
+  const Member = require('../models/Member.model');
+  const { MEMBER_STATUS } = require('../config/constants');
+  
+  const invitations = await Member.find({
+    user: req.user._id,
+    status: MEMBER_STATUS.INVITED
+  })
+    .populate('group', 'name description monthlyContribution memberCount startDate status')
+    .sort({ createdAt: -1 });
+
+  return ApiResponse.success(
+    res,
+    { invitations },
+    'Invitations retrieved successfully'
+  );
+});
+
+/**
+ * @desc    Reject invitation
+ * @route   POST /api/v1/members/:memberId/reject
+ * @access  Private
+ */
+const rejectInvitation = asyncHandler(async (req, res) => {
+  const Member = require('../models/Member.model');
+  const { MEMBER_STATUS } = require('../config/constants');
+  
+  const member = await Member.findById(req.params.memberId);
+  
+  if (!member) {
+    throw ApiError.notFound('Invitation not found');
+  }
+  
+  if (member.user.toString() !== req.user._id.toString()) {
+    throw ApiError.forbidden('You can only reject your own invitations');
+  }
+  
+  if (member.status !== MEMBER_STATUS.INVITED) {
+    throw ApiError.badRequest('This invitation has already been processed');
+  }
+  
+  // Remove member from group
+  await Member.findByIdAndDelete(req.params.memberId);
+  
+  return ApiResponse.success(
+    res,
+    null,
+    'Invitation rejected successfully'
+  );
+});
+
 module.exports = {
   getMemberById,
   updateMember,
   getMemberPenalties,
   updateMemberStatus,
   getMemberStats,
+  getMyInvitations,
+  rejectInvitation,
 };

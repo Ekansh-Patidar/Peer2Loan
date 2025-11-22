@@ -29,10 +29,11 @@ router.post(
 );
 
 // Get payments
+router.get('/my-payments', paymentController.getMyPayments);
 router.get('/cycle/:cycleId', isGroupMember, paymentController.getCyclePayments);
-router.get('/member/:memberId', isGroupMember, paymentController.getMemberPayments);
+router.get('/member/:memberId', paymentController.getMemberPayments);
 router.get('/group/:groupId', isGroupMember, paymentController.getGroupPayments);
-router.get('/:paymentId', paymentIdValidator, validate, isGroupMember, paymentController.getPaymentById);
+router.get('/:paymentId', paymentIdValidator, validate, paymentController.getPaymentById);
 
 // Admin actions
 router.put('/:paymentId/confirm', confirmPaymentValidator, validate, isGroupOrganizer, paymentController.confirmPayment);

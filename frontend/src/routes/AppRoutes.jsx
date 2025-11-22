@@ -27,6 +27,9 @@ import { PayoutsDashboard } from '../pages/Payouts';
 // Member Pages
 import { MembersDashboard } from '../pages/Members';
 
+// Notification Pages
+import { NotificationsPage } from '../pages/Notifications';
+
 // Report Pages
 import { GroupLedger, MemberLedger, MonthlySummary, AuditLog, ReportsDashboard } from '../pages/Reports';
 
@@ -167,6 +170,16 @@ const AppRoutes = () => {
         element={
           <PrivateRoute>
             <MembersDashboard />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Notification Routes */}
+      <Route
+        path="/notifications"
+        element={
+          <PrivateRoute>
+            <NotificationsPage />
           </PrivateRoute>
         }
       />

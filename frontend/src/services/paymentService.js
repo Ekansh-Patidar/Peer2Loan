@@ -52,6 +52,20 @@ const paymentService = {
   },
 
   /**
+   * Get current user's payment history
+   * @param {Object} params - Query parameters (page, limit)
+   * @returns {Promise<Object>} Payment history
+   */
+  getMyPayments: async (params = {}) => {
+    try {
+      const response = await api.get('/payments/my-payments', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  /**
    * Get payment history for a member
    * @param {string} memberId - Member ID
    * @param {Object} params - Query parameters (page, limit)

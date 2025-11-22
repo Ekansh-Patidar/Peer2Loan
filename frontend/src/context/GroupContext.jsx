@@ -64,24 +64,43 @@ export const GroupProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       const response = await groupService.updateGroup(groupId, updates);
-      setGroups(prev => prev.map(g => g.id === groupId ? response.data : g));
-      setCurrentGroup(response.data);
-      return { success: true, data: response.data };
+      const updatedGroup = response.data?.group || response.group || response.data;
+      
+      // Update the groups list
+      setGroups(prev => prev.map(g => 
+        (g._id === groupId || g.id === groupId) ? updatedGroup : g
+      ));
+      setCurrentGroup(updatedGroup);
+      
+      // Reload groups to ensure consistency
+      await loadGroups();
+      
+      return { success: true, data: updatedGroup };
     } catch (err) {
       setError(err.message);
       return { success: false, error: err.message };
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadGroups]);
 
   const deleteExistingGroup = useCallback(async (groupId) => {
     try {
       setLoading(true);
       setError(null);
       await groupService.deleteGroup(groupId);
-      setGroups(prev => prev.filter(g => g.id !== groupId));
-      if (currentGroup?.id === groupId) setCurrentGroup(null);
+      
+      // Remove from groups list
+      setGroups(prev => prev.filter(g => g._id !== groupId && g.id !== groupId));
+      
+      // Clear current group if it's the one being deleted
+      if (currentGroup?._id === groupId || currentGroup?.id === groupId) {
+        setCurrentGroup(null);
+      }
+      
+      // Reload groups to ensure consistency
+      await loadGroups();
+      
       return { success: true };
     } catch (err) {
       setError(err.message);
@@ -89,7 +108,7 @@ export const GroupProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [currentGroup]);
+  }, [currentGroup, loadGroups]);
 
   const value = {
     groups,
@@ -97,6 +116,7 @@ export const GroupProvider = ({ children }) => {
     loading,
     error,
     loadGroups,
+    fetchAllGroups: loadGroups, // Alias for consistency
     selectGroup,
     createNewGroup,
     updateExistingGroup,

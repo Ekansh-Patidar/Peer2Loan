@@ -159,6 +159,43 @@ const getCyclePayments = async (cycleId) => {
 };
 
 /**
+ * Get user's payment history (across all groups)
+ */
+const getUserPayments = async (userId, options = {}) => {
+  const { page = 1, limit = 20 } = options;
+  const skip = (page - 1) * limit;
+
+  // Find all member records for this user
+  const Member = require('../models/Member.model');
+  const members = await Member.find({ user: userId }).select('_id');
+  const memberIds = members.map(m => m._id);
+
+  const [payments, total] = await Promise.all([
+    Payment.find({ member: { $in: memberIds } })
+      .populate('member', 'turnNumber')
+      .populate({
+        path: 'member',
+        populate: { path: 'group', select: 'name' }
+      })
+      .populate('cycle', 'cycleNumber startDate endDate')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Payment.countDocuments({ member: { $in: memberIds } }),
+  ]);
+
+  return {
+    payments,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    },
+  };
+};
+
+/**
  * Get member's payment history
  */
 const getMemberPayments = async (memberId, options = {}) => {
@@ -290,6 +327,7 @@ module.exports = {
   recordPayment,
   getPaymentById,
   getCyclePayments,
+  getUserPayments,
   getMemberPayments,
   getGroupPayments,
   confirmPayment,

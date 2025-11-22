@@ -93,6 +93,30 @@ export const PaymentProvider = ({ children }) => {
   }, [showNotification]);
 
   /**
+   * Get current user's payment history
+   */
+  const fetchMyPayments = useCallback(async (params = {}) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await paymentService.getMyPayments(params);
+      // Handle different response structures
+      const paymentsData = response?.data?.payments || response?.payments || [];
+      setPayments(paymentsData);
+      return response?.data || response || { payments: [] };
+    } catch (err) {
+      const errorMsg = err.message || 'Failed to fetch payment history';
+      setError(errorMsg);
+      setPayments([]); // Set empty array on error
+      showNotification(errorMsg, 'error');
+      // Don't throw, just return empty data
+      return { payments: [] };
+    } finally {
+      setLoading(false);
+    }
+  }, [showNotification]);
+
+  /**
    * Get payment history for a member
    */
   const fetchMemberPayments = useCallback(async (memberId, params = {}) => {
@@ -100,14 +124,17 @@ export const PaymentProvider = ({ children }) => {
     setError(null);
     try {
       const response = await paymentService.getMemberPayments(memberId, params);
-      const payments = response.data.payments || [];
-      setPayments(payments);
-      return response.data;
+      // Handle different response structures
+      const paymentsData = response?.data?.payments || response?.payments || [];
+      setPayments(paymentsData);
+      return response?.data || response || { payments: [] };
     } catch (err) {
       const errorMsg = err.message || 'Failed to fetch payment history';
       setError(errorMsg);
+      setPayments([]); // Set empty array on error
       showNotification(errorMsg, 'error');
-      throw err;
+      // Don't throw, just return empty data
+      return { payments: [] };
     } finally {
       setLoading(false);
     }
@@ -416,6 +443,7 @@ export const PaymentProvider = ({ children }) => {
     recordPayment,
     fetchPaymentById,
     fetchCyclePayments,
+    fetchMyPayments,
     fetchMemberPayments,
     fetchGroupPayments,
     confirmPayment,

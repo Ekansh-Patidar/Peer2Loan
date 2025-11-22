@@ -249,9 +249,13 @@ const getMemberDashboard = asyncHandler(async (req, res) => {
  */
 const getOverviewDashboard = asyncHandler(async (req, res) => {
   const userId = req.user._id;
+  const { MEMBER_STATUS } = require('../config/constants');
 
-  // Get all member records for user
-  const memberRecords = await Member.find({ user: userId })
+  // Get only active member records for user (not invited)
+  const memberRecords = await Member.find({ 
+    user: userId,
+    status: MEMBER_STATUS.ACTIVE
+  })
     .populate('group', 'name status currentCycle duration monthlyContribution');
 
   const groupSummaries = memberRecords.map((member) => ({
