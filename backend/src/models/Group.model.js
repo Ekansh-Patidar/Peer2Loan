@@ -119,15 +119,33 @@ const groupSchema = new mongoose.Schema({
   stats: {
     totalCollected: {
       type: Number,
-      default: 0
+      default: 0,
+      set: function(val) {
+        return Math.round(val * 100) / 100;
+      },
+      get: function(val) {
+        return Math.round(val * 100) / 100;
+      }
     },
     totalDisbursed: {
       type: Number,
-      default: 0
+      default: 0,
+      set: function(val) {
+        return Math.round(val * 100) / 100;
+      },
+      get: function(val) {
+        return Math.round(val * 100) / 100;
+      }
     },
     totalPenalties: {
       type: Number,
-      default: 0
+      default: 0,
+      set: function(val) {
+        return Math.round(val * 100) / 100;
+      },
+      get: function(val) {
+        return Math.round(val * 100) / 100;
+      }
     },
     completedCycles: {
       type: Number,
@@ -174,7 +192,9 @@ const groupSchema = new mongoose.Schema({
     default: null
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { getters: true },
+  toObject: { getters: true }
 });
 
 // Virtual for pot amount

@@ -38,50 +38,62 @@ const recordPayment = async (paymentData) => {
   }
 
   // Check if payment already exists
-  const existingPayment = await Payment.findOne({
+  let existingPayment = await Payment.findOne({
     member: memberId,
     cycle: cycleId,
   });
 
-  if (existingPayment) {
+  // If payment exists and is already paid/verified, don't allow duplicate
+  if (existingPayment && existingPayment.status !== PAYMENT_STATUS.PENDING) {
     throw ApiError.conflict('Payment already recorded for this cycle');
   }
 
-  // Calculate due date
-  const dueDate = new Date(cycle.startDate);
-  dueDate.setDate(cycle.group.paymentWindow.endDay);
+  // Calculate due date - should be the end of the cycle
+  const dueDate = new Date(cycle.endDate);
 
   // Determine payment date
   const paymentDate = paidAt ? new Date(paidAt) : new Date();
 
-  // Check if late
+  // Check if late - payment is late only if made after grace period ends
   const gracePeriodEnd = calculateGracePeriodEnd(
     dueDate,
     cycle.group.penaltyRules.gracePeriodDays
   );
-  const isLate = isPaymentLate(
-    paymentDate,
-    dueDate,
-    cycle.group.penaltyRules.gracePeriodDays
-  );
+  const isLate = paymentDate > gracePeriodEnd;
 
-  // Create payment
-  const payment = await Payment.create({
-    group: groupId,
-    member: memberId,
-    cycle: cycleId,
-    cycleNumber: cycle.cycleNumber,
-    amount,
-    paymentMode,
-    transactionId,
-    referenceNumber,
-    dueDate,
-    paidAt: paymentDate,
-    status: PAYMENT_STATUS.PAID,
-    isLate,
-    memberRemarks,
-    proofDocument,
-  });
+  // Update existing pending payment or create new one
+  let payment;
+  if (existingPayment) {
+    // Update the existing pending payment
+    existingPayment.amount = amount;
+    existingPayment.paymentMode = paymentMode;
+    existingPayment.transactionId = transactionId;
+    existingPayment.referenceNumber = referenceNumber;
+    existingPayment.paidAt = paymentDate;
+    existingPayment.status = proofDocument ? PAYMENT_STATUS.UNDER_REVIEW : PAYMENT_STATUS.PAID;
+    existingPayment.isLate = isLate;
+    existingPayment.memberRemarks = memberRemarks;
+    existingPayment.proofDocument = proofDocument;
+    payment = await existingPayment.save();
+  } else {
+    // Create new payment record
+    payment = await Payment.create({
+      group: groupId,
+      member: memberId,
+      cycle: cycleId,
+      cycleNumber: cycle.cycleNumber,
+      amount,
+      paymentMode,
+      transactionId,
+      referenceNumber,
+      dueDate,
+      paidAt: paymentDate,
+      status: proofDocument ? PAYMENT_STATUS.UNDER_REVIEW : PAYMENT_STATUS.PAID,
+      isLate,
+      memberRemarks,
+      proofDocument,
+    });
+  }
 
   // Apply late fee if payment is late
   if (isLate) {
@@ -104,6 +116,9 @@ const recordPayment = async (paymentData) => {
 
   // Update cycle statistics
   await cycle.updatePaymentCounts();
+  
+  // Check if cycle is ready for payout (100% quorum by default)
+  await cycle.checkPayoutReadiness(100);
 
   // Update group statistics
   await Group.findByIdAndUpdate(groupId, {

@@ -1,22 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout';
-import { Card, Alert, Loader, Button, Table, Input } from '../../components/common';
-import reportService from '../../services/reportService';
+import { Card, Button, Alert, Loader, Table } from '../../components/common';
 import useAuth from '../../hooks/useAuth';
+import api from '../../services/api';
 import './Reports.css';
 
-/**
- * GroupLedger - Complete transaction history for a group
- */
 const GroupLedger = () => {
   const { groupId } = useParams();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [data, setData] = useState(null);
+  const [ledger, setLedger] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
+  const [expandedCycle, setExpandedCycle] = useState(null);
 
   useEffect(() => {
     fetchLedger();
@@ -25,11 +22,10 @@ const GroupLedger = () => {
   const fetchLedger = async () => {
     try {
       setLoading(true);
-      setError(null);
-      const response = await reportService.getGroupLedger(groupId);
-      setData(response.data);
+      const response = await api.get(`/reports/group/${groupId}/ledger`);
+      setLedger(response.data);
     } catch (err) {
-      setError(err.message || 'Failed to fetch group ledger');
+      setError(err.response?.data?.message || 'Failed to load ledger');
     } finally {
       setLoading(false);
     }
@@ -37,26 +33,38 @@ const GroupLedger = () => {
 
   const handleExportCSV = async () => {
     try {
-      await reportService.exportGroupCSV(groupId);
+      const token = localStorage.getItem('peer2loan_token');
+      const baseURL = 'http://localhost:5000/api/v1';
+      const response = await fetch(`${baseURL}/reports/group/${groupId}/export/csv`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to export CSV');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `group-ledger-${groupId}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
+      console.error('Export error:', err);
       alert('Failed to export CSV: ' + err.message);
-    }
-  };
-
-  const handleExportPDF = async () => {
-    try {
-      await reportService.exportGroupPDF(groupId);
-    } catch (err) {
-      alert('Failed to export PDF: ' + err.message);
     }
   };
 
   if (loading) {
     return (
       <DashboardLayout user={user} onLogout={logout}>
-        <div className="reports-loading">
-          <Loader variant="spinner" size="large" />
-          <p>Loading ledger...</p>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
+          <Loader variant="spinner" size="large" text="Loading ledger..." />
         </div>
       </DashboardLayout>
     );
@@ -65,95 +73,38 @@ const GroupLedger = () => {
   if (error) {
     return (
       <DashboardLayout user={user} onLogout={logout}>
-        <Alert type="error" title="Error">
-          {error}
-        </Alert>
-        <Button onClick={fetchLedger} style={{ marginTop: '16px' }}>
-          Retry
+        <Alert type="error">{error}</Alert>
+        <Button onClick={() => navigate('/reports')} style={{ marginTop: '16px' }}>
+          Back to Reports
         </Button>
       </DashboardLayout>
     );
   }
 
-  if (!data) {
+  if (!ledger) return null;
+
+  const getStatusBadge = (status) => {
+    const colors = {
+      active: { bg: '#e8f5e9', color: '#2e7d32' },
+      pending: { bg: '#fff3e0', color: '#f57c00' },
+      completed: { bg: '#e3f2fd', color: '#1976d2' },
+      cancelled: { bg: '#ffebee', color: '#c62828' },
+    };
+    const style = colors[status] || colors.pending;
     return (
-      <DashboardLayout user={user} onLogout={logout}>
-        <Alert type="info">No ledger data available</Alert>
-      </DashboardLayout>
+      <span style={{
+        padding: '4px 12px',
+        borderRadius: '12px',
+        fontSize: '11px',
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        background: style.bg,
+        color: style.color,
+      }}>
+        {status}
+      </span>
     );
-  }
-
-  const { group, transactions, summary } = data;
-
-  // Filter transactions
-  const filteredTransactions = transactions.filter((txn) => {
-    const matchesSearch =
-      txn.memberName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      txn.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || txn.type === filterType;
-    return matchesSearch && matchesType;
-  });
-
-  // Table columns
-  const columns = [
-    {
-      title: 'Date',
-      dataIndex: 'date',
-      key: 'date',
-      render: (date) => new Date(date).toLocaleDateString(),
-    },
-    {
-      title: 'Cycle',
-      dataIndex: 'cycleNumber',
-      key: 'cycleNumber',
-      render: (cycle) => `#${cycle}`,
-    },
-    {
-      title: 'Member',
-      dataIndex: 'memberName',
-      key: 'memberName',
-    },
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type) => (
-        <span
-          style={{
-            padding: '4px 10px',
-            borderRadius: '12px',
-            fontSize: '11px',
-            fontWeight: '600',
-            textTransform: 'uppercase',
-            background: type === 'contribution' ? '#e3f2fd' : type === 'payout' ? '#e8f5e9' : '#fff3e0',
-            color: type === 'contribution' ? '#1976d2' : type === 'payout' ? '#2e7d32' : '#f57c00',
-          }}
-        >
-          {type}
-        </span>
-      ),
-    },
-    {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
-    },
-    {
-      title: 'Amount',
-      dataIndex: 'amount',
-      key: 'amount',
-      render: (amount, record) => (
-        <span
-          style={{
-            fontWeight: '600',
-            color: record.type === 'payout' ? '#4caf50' : record.type === 'penalty' ? '#f44336' : '#1a1a1a',
-          }}
-        >
-          {record.type === 'payout' ? '+' : '-'}₹{amount.toLocaleString()}
-        </span>
-      ),
-    },
-  ];
+  };
 
   return (
     <DashboardLayout user={user} onLogout={logout}>
@@ -161,25 +112,20 @@ const GroupLedger = () => {
         {/* Header */}
         <div className="reports-header">
           <div>
+            <Button variant="ghost" onClick={() => navigate('/reports')} style={{ marginBottom: '8px' }}>
+              ← Back to Reports
+            </Button>
             <h1>Group Ledger</h1>
-            <p className="reports-subtitle">{group.name}</p>
+            <p className="reports-subtitle">{ledger.group.name}</p>
           </div>
-          <div className="reports-actions">
+          <div style={{ display: 'flex', gap: '12px' }}>
             <Button variant="outline" onClick={handleExportCSV}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px', marginRight: '4px' }}>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
               Export CSV
-            </Button>
-            <Button variant="outline" onClick={handleExportPDF}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Export PDF
             </Button>
             <Button variant="primary" onClick={fetchLedger}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
@@ -192,85 +138,206 @@ const GroupLedger = () => {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="ledger-summary-grid">
-          <Card variant="elevated">
-            <div className="summary-stat">
-              <div className="summary-stat-label">Total Contributions</div>
-              <div className="summary-stat-value green">₹{summary.totalContributions.toLocaleString()}</div>
+        {/* Group Summary */}
+        <Card title="Group Summary">
+          <div className="ledger-summary-grid">
+            <div className="summary-item">
+              <span className="label">Monthly Contribution</span>
+              <span className="value">₹{ledger.group.monthlyContribution.toLocaleString()}</span>
             </div>
-          </Card>
-          <Card variant="elevated">
-            <div className="summary-stat">
-              <div className="summary-stat-label">Total Payouts</div>
-              <div className="summary-stat-value blue">₹{summary.totalPayouts.toLocaleString()}</div>
+            <div className="summary-item">
+              <span className="label">Members</span>
+              <span className="value">{ledger.group.memberCount}</span>
             </div>
-          </Card>
-          <Card variant="elevated">
-            <div className="summary-stat">
-              <div className="summary-stat-label">Total Penalties</div>
-              <div className="summary-stat-value red">₹{summary.totalPenalties.toLocaleString()}</div>
+            <div className="summary-item">
+              <span className="label">Duration</span>
+              <span className="value">{ledger.group.duration} months</span>
             </div>
-          </Card>
-          <Card variant="elevated">
-            <div className="summary-stat">
-              <div className="summary-stat-label">Total Transactions</div>
-              <div className="summary-stat-value">{summary.totalTransactions}</div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Filters */}
-        <Card>
-          <div className="ledger-filters">
-            <Input
-              placeholder="Search by member or description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ flex: 1, maxWidth: '400px' }}
-            />
-            <div className="filter-buttons">
-              <Button
-                variant={filterType === 'all' ? 'primary' : 'ghost'}
-                size="small"
-                onClick={() => setFilterType('all')}
-              >
-                All
-              </Button>
-              <Button
-                variant={filterType === 'contribution' ? 'primary' : 'ghost'}
-                size="small"
-                onClick={() => setFilterType('contribution')}
-              >
-                Contributions
-              </Button>
-              <Button
-                variant={filterType === 'payout' ? 'primary' : 'ghost'}
-                size="small"
-                onClick={() => setFilterType('payout')}
-              >
-                Payouts
-              </Button>
-              <Button
-                variant={filterType === 'penalty' ? 'primary' : 'ghost'}
-                size="small"
-                onClick={() => setFilterType('penalty')}
-              >
-                Penalties
-              </Button>
+            <div className="summary-item">
+              <span className="label">Status</span>
+              {getStatusBadge(ledger.group.status)}
             </div>
           </div>
         </Card>
 
-        {/* Transactions Table */}
-        <Card title="Transaction History" subtitle={`${filteredTransactions.length} transaction(s)`}>
-          {filteredTransactions.length > 0 ? (
-            <Table columns={columns} data={filteredTransactions} striped hoverable />
-          ) : (
-            <div className="empty-state">
-              <p>No transactions found</p>
+        {/* Financial Summary */}
+        <div className="stats-grid">
+          <Card variant="elevated">
+            <div className="stat-card">
+              <div className="stat-icon green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </div>
+              <div className="stat-content">
+                <div className="stat-label">Total Collected</div>
+                <div className="stat-value">₹{ledger.stats.totalCollected.toLocaleString()}</div>
+              </div>
             </div>
-          )}
+          </Card>
+
+          <Card variant="elevated">
+            <div className="stat-card">
+              <div className="stat-icon purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+              </div>
+              <div className="stat-content">
+                <div className="stat-label">Total Disbursed</div>
+                <div className="stat-value">₹{ledger.stats.totalDisbursed.toLocaleString()}</div>
+              </div>
+            </div>
+          </Card>
+
+          <Card variant="elevated">
+            <div className="stat-card">
+              <div className="stat-icon yellow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <div className="stat-content">
+                <div className="stat-label">Total Penalties</div>
+                <div className="stat-value">₹{ledger.stats.totalPenalties.toLocaleString()}</div>
+              </div>
+            </div>
+          </Card>
+
+          <Card variant="elevated">
+            <div className="stat-card">
+              <div className="stat-icon blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              </div>
+              <div className="stat-content">
+                <div className="stat-label">Completed Cycles</div>
+                <div className="stat-value">{ledger.stats.completedCycles}</div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Cycles */}
+        <Card title="Cycle-wise Breakdown" subtitle={`${ledger.cycles.length} cycles`}>
+          <div className="cycles-list">
+            {ledger.cycles.map((cycle) => (
+              <div key={cycle.cycleNumber} className="cycle-card">
+                <div 
+                  className="cycle-header"
+                  onClick={() => setExpandedCycle(expandedCycle === cycle.cycleNumber ? null : cycle.cycleNumber)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="cycle-title">
+                    <h3>Cycle {cycle.cycleNumber}</h3>
+                    {getStatusBadge(cycle.status)}
+                  </div>
+                  <div className="cycle-summary">
+                    <div className="cycle-info">
+                      <span className="label">Beneficiary:</span>
+                      <span className="value">{cycle.beneficiary} (Turn #{cycle.beneficiaryTurn})</span>
+                    </div>
+                    <div className="cycle-info">
+                      <span className="label">Period:</span>
+                      <span className="value">
+                        {new Date(cycle.startDate).toLocaleDateString()} - {new Date(cycle.endDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="cycle-info">
+                      <span className="label">Collection:</span>
+                      <span className="value">
+                        ₹{cycle.collectedAmount.toLocaleString()} / ₹{cycle.expectedAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="cycle-info">
+                      <span className="label">Payments:</span>
+                      <span className="value">
+                        {cycle.paidCount} paid, {cycle.pendingCount} pending, {cycle.lateCount} late
+                      </span>
+                    </div>
+                  </div>
+                  <svg 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2"
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      transform: expandedCycle === cycle.cycleNumber ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s'
+                    }}
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </div>
+
+                {expandedCycle === cycle.cycleNumber && (
+                  <div className="cycle-details">
+                    <h4>Payment Details</h4>
+                    <div className="payments-table">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Member</th>
+                            <th>Turn</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Paid At</th>
+                            <th>Late Fee</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {cycle.payments.map((payment, idx) => (
+                            <tr key={idx} className={payment.isLate ? 'late-payment' : ''}>
+                              <td>{payment.member}</td>
+                              <td>#{payment.turnNumber}</td>
+                              <td>₹{payment.amount.toLocaleString()}</td>
+                              <td>{getStatusBadge(payment.status)}</td>
+                              <td>{payment.paidAt ? new Date(payment.paidAt).toLocaleDateString() : 'N/A'}</td>
+                              <td>{payment.lateFee ? `₹${payment.lateFee}` : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {cycle.payout && (
+                      <div className="payout-info">
+                        <h4>Payout Information</h4>
+                        <div className="payout-details">
+                          <div className="payout-item">
+                            <span className="label">Amount:</span>
+                            <span className="value">₹{cycle.payout.amount.toLocaleString()}</span>
+                          </div>
+                          <div className="payout-item">
+                            <span className="label">Status:</span>
+                            {getStatusBadge(cycle.payout.status)}
+                          </div>
+                          {cycle.payout.completedAt && (
+                            <div className="payout-item">
+                              <span className="label">Completed:</span>
+                              <span className="value">{new Date(cycle.payout.completedAt).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                          {cycle.payout.transferReference && (
+                            <div className="payout-item">
+                              <span className="label">Reference:</span>
+                              <span className="value">{cycle.payout.transferReference}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </Card>
       </div>
     </DashboardLayout>

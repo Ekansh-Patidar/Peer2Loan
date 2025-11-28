@@ -1,47 +1,71 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout';
-import { Card, Alert, Loader, Button, Table, Input } from '../../components/common';
-import reportService from '../../services/reportService';
+import { Card, Button, Alert, Loader } from '../../components/common';
 import useAuth from '../../hooks/useAuth';
+import api from '../../services/api';
 import './Reports.css';
 
-/**
- * AuditLog - Complete audit trail of all group activities
- */
 const AuditLog = () => {
   const { groupId } = useParams();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [data, setData] = useState(null);
+  const [auditData, setAuditData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
-  const limit = 50;
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     fetchAuditLog();
-  }, [groupId, page]);
+  }, [groupId, currentPage]);
 
   const fetchAuditLog = async () => {
     try {
       setLoading(true);
-      setError(null);
-      const response = await reportService.getAuditLog(groupId, { page, limit });
-      setData(response.data);
+      const response = await api.get(`/reports/group/${groupId}/audit-log?page=${currentPage}&limit=50`);
+      const data = response.data || response;
+      setAuditData(data);
     } catch (err) {
-      setError(err.message || 'Failed to fetch audit log');
+      setError(err.message || 'Failed to load audit log');
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading && !data) {
+  const handleExportCSV = async () => {
+    try {
+      const token = localStorage.getItem('peer2loan_token');
+      const baseURL = 'http://localhost:5000/api/v1';
+      const response = await fetch(`${baseURL}/reports/group/${groupId}/audit-log/export/csv`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to export CSV');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `audit-log-${groupId}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error:', err);
+      alert('Failed to export CSV: ' + err.message);
+    }
+  };
+
+  if (loading) {
     return (
       <DashboardLayout user={user} onLogout={logout}>
-        <div className="reports-loading">
-          <Loader variant="spinner" size="large" />
-          <p>Loading audit log...</p>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
+          <Loader variant="spinner" size="large" text="Loading audit log..." />
         </div>
       </DashboardLayout>
     );
@@ -50,108 +74,53 @@ const AuditLog = () => {
   if (error) {
     return (
       <DashboardLayout user={user} onLogout={logout}>
-        <Alert type="error" title="Error">
-          {error}
-        </Alert>
-        <Button onClick={fetchAuditLog} style={{ marginTop: '16px' }}>
-          Retry
+        <Alert type="error">{error}</Alert>
+        <Button onClick={() => navigate('/reports/audit-log')} style={{ marginTop: '16px' }}>
+          Back to Group Selection
         </Button>
       </DashboardLayout>
     );
   }
 
-  if (!data) {
+  if (!auditData || !auditData.logs) {
     return (
       <DashboardLayout user={user} onLogout={logout}>
-        <Alert type="info">No audit log data available</Alert>
+        <Alert type="error">Unable to load audit log data</Alert>
+        <Button onClick={() => navigate('/reports/audit-log')} style={{ marginTop: '16px' }}>
+          Back to Group Selection
+        </Button>
       </DashboardLayout>
     );
   }
 
-  const { group, logs, pagination } = data;
-
-  // Filter logs by search term
-  const filteredLogs = logs.filter(
-    (log) =>
-      log.action?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.performedBy?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.details?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Get action icon and color
-  const getActionStyle = (action) => {
-    const styles = {
-      create: { icon: '➕', color: '#4caf50' },
-      update: { icon: '✏️', color: '#2196f3' },
-      delete: { icon: '🗑️', color: '#f44336' },
-      payment: { icon: '💰', color: '#ff9800' },
-      payout: { icon: '💸', color: '#9c27b0' },
-      member_add: { icon: '👤', color: '#00bcd4' },
-      member_remove: { icon: '👤', color: '#f44336' },
-      cycle_start: { icon: '▶️', color: '#4caf50' },
-      cycle_complete: { icon: '✅', color: '#4caf50' },
-      status_change: { icon: '🔄', color: '#ff9800' },
+  const getActionBadge = (action) => {
+    const colors = {
+      GROUP_CREATED: { bg: '#e8f5e9', color: '#2e7d32' },
+      MEMBER_INVITED: { bg: '#e3f2fd', color: '#1976d2' },
+      MEMBER_JOINED: { bg: '#e8f5e9', color: '#2e7d32' },
+      PAYMENT_RECORDED: { bg: '#e3f2fd', color: '#1976d2' },
+      PAYMENT_VERIFIED: { bg: '#c8e6c9', color: '#388e3c' },
+      PAYMENT_CONFIRMED: { bg: '#e8f5e9', color: '#2e7d32' },
+      PAYOUT_EXECUTED: { bg: '#e8f5e9', color: '#2e7d32' },
+      PENALTY_APPLIED: { bg: '#ffebee', color: '#c62828' },
+      CYCLE_STARTED: { bg: '#e3f2fd', color: '#1976d2' },
+      CYCLE_COMPLETED: { bg: '#e8f5e9', color: '#2e7d32' },
     };
-    return styles[action] || { icon: '📝', color: '#757575' };
+    const style = colors[action] || { bg: '#f5f5f5', color: '#666' };
+    return (
+      <span style={{
+        padding: '4px 10px',
+        borderRadius: '12px',
+        fontSize: '10px',
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        background: style.bg,
+        color: style.color,
+      }}>
+        {action.replace(/_/g, ' ')}
+      </span>
+    );
   };
-
-  // Table columns
-  const columns = [
-    {
-      title: 'Timestamp',
-      dataIndex: 'timestamp',
-      key: 'timestamp',
-      render: (date) => (
-        <div style={{ fontSize: '13px' }}>
-          <div>{new Date(date).toLocaleDateString()}</div>
-          <div style={{ color: '#999', fontSize: '11px' }}>{new Date(date).toLocaleTimeString()}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Action',
-      dataIndex: 'action',
-      key: 'action',
-      render: (action) => {
-        const style = getActionStyle(action);
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '18px' }}>{style.icon}</span>
-            <span
-              style={{
-                padding: '4px 10px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                background: `${style.color}20`,
-                color: style.color,
-              }}
-            >
-              {action.replace(/_/g, ' ')}
-            </span>
-          </div>
-        );
-      },
-    },
-    {
-      title: 'Performed By',
-      dataIndex: 'performedBy',
-      key: 'performedBy',
-    },
-    {
-      title: 'Details',
-      dataIndex: 'details',
-      key: 'details',
-      render: (details) => <div style={{ maxWidth: '400px', fontSize: '13px' }}>{details}</div>,
-    },
-    {
-      title: 'IP Address',
-      dataIndex: 'ipAddress',
-      key: 'ipAddress',
-      render: (ip) => <span style={{ fontSize: '12px', color: '#999', fontFamily: 'monospace' }}>{ip || '-'}</span>,
-    },
-  ];
 
   return (
     <DashboardLayout user={user} onLogout={logout}>
@@ -159,10 +128,21 @@ const AuditLog = () => {
         {/* Header */}
         <div className="reports-header">
           <div>
+            <Button variant="ghost" onClick={() => navigate('/reports/audit-log')} style={{ marginBottom: '8px' }}>
+              ← Back to Group Selection
+            </Button>
             <h1>Audit Log</h1>
-            <p className="reports-subtitle">{group.name}</p>
+            <p className="reports-subtitle">Complete activity trail and history</p>
           </div>
-          <div className="reports-actions">
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <Button variant="outline" onClick={handleExportCSV}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px', marginRight: '4px' }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Export CSV
+            </Button>
             <Button variant="primary" onClick={fetchAuditLog}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
                 <polyline points="23 4 23 10 17 10" />
@@ -174,56 +154,90 @@ const AuditLog = () => {
           </div>
         </div>
 
-        {/* Info Alert */}
-        <Alert type="info">
-          Audit log tracks all activities in the group including payments, payouts, member changes, and administrative actions.
-        </Alert>
-
-        {/* Search */}
+        {/* Stats */}
         <Card>
-          <Input
-            placeholder="Search by action, user, or details..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', maxWidth: '500px' }}
-          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>Total Activities</div>
+              <div style={{ fontSize: '24px', fontWeight: '700' }}>{auditData.pagination.total}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>Page</div>
+              <div style={{ fontSize: '20px', fontWeight: '600' }}>
+                {auditData.pagination.page} of {auditData.pagination.pages}
+              </div>
+            </div>
+          </div>
         </Card>
 
-        {/* Audit Log Table */}
-        <Card title="Activity Log" subtitle={`${filteredLogs.length} of ${pagination.total} entries`}>
-          {filteredLogs.length > 0 ? (
-            <>
-              <Table columns={columns} data={filteredLogs} striped hoverable />
-
-              {/* Pagination */}
-              <div className="pagination">
-                <Button
-                  variant="outline"
-                  size="small"
-                  disabled={page === 1}
-                  onClick={() => setPage(page - 1)}
-                >
-                  Previous
-                </Button>
-                <span className="pagination-info">
-                  Page {pagination.currentPage} of {pagination.totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="small"
-                  disabled={page >= pagination.totalPages}
-                  onClick={() => setPage(page + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </>
+        {/* Audit Log Timeline */}
+        <Card title="Activity Timeline" subtitle={`${auditData.logs.length} activities on this page`}>
+          {auditData.logs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+              No audit log entries found
+            </div>
           ) : (
-            <div className="empty-state">
-              <p>No audit log entries found</p>
+            <div className="payments-timeline">
+              {auditData.logs.map((log, index) => (
+                <div key={log.id} className="payment-timeline-item">
+                  <div className="timeline-marker">
+                    <div className="timeline-dot" />
+                  </div>
+                  <div className="timeline-content">
+                    <div className="timeline-header">
+                      <div className="timeline-title">
+                        {getActionBadge(log.action)}
+                        <span style={{ marginLeft: '12px', fontSize: '14px', color: '#666' }}>
+                          {new Date(log.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="timeline-details">
+                      <div style={{ marginBottom: '8px', fontSize: '14px', color: '#1a1a1a' }}>
+                        {log.description}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '13px' }}>
+                        <div>
+                          <span style={{ color: '#666', fontWeight: '500' }}>Performed by: </span>
+                          <span style={{ color: '#1a1a1a' }}>{log.performedBy}</span>
+                        </div>
+                        {log.affectedMember && (
+                          <div>
+                            <span style={{ color: '#666', fontWeight: '500' }}>Affected member: </span>
+                            <span style={{ color: '#1a1a1a' }}>{log.affectedMember}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </Card>
+
+        {/* Pagination */}
+        {auditData.pagination.pages > 1 && (
+          <div className="pagination">
+            <Button 
+              variant="outline" 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <div className="pagination-info">
+              Page {currentPage} of {auditData.pagination.pages}
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setCurrentPage(p => Math.min(auditData.pagination.pages, p + 1))}
+              disabled={currentPage === auditData.pagination.pages}
+            >
+              Next
+            </Button>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

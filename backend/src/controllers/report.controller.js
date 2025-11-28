@@ -83,6 +83,45 @@ const exportGroupCSV = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Export member ledger as CSV
+ * @route   GET /api/v1/reports/member/:memberId/export/csv
+ * @access  Private
+ */
+const exportMemberCSV = asyncHandler(async (req, res) => {
+  const csv = await reportService.exportMemberCSV(req.params.memberId);
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename=member-${req.params.memberId}-ledger.csv`);
+  res.send(csv);
+});
+
+/**
+ * @desc    Export monthly summary as CSV
+ * @route   GET /api/v1/reports/group/:groupId/monthly/:cycleNumber/export/csv
+ * @access  Private
+ */
+const exportMonthlySummaryCSV = asyncHandler(async (req, res) => {
+  const csv = await reportService.exportMonthlySummaryCSV(req.params.groupId, parseInt(req.params.cycleNumber));
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename=monthly-summary-cycle-${req.params.cycleNumber}.csv`);
+  res.send(csv);
+});
+
+/**
+ * @desc    Export audit log as CSV
+ * @route   GET /api/v1/reports/group/:groupId/audit-log/export/csv
+ * @access  Private
+ */
+const exportAuditLogCSV = asyncHandler(async (req, res) => {
+  const csv = await reportService.exportAuditLogCSV(req.params.groupId);
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename=audit-log-${req.params.groupId}.csv`);
+  res.send(csv);
+});
+
+/**
  * @desc    Export group data as PDF
  * @route   GET /api/v1/reports/group/:groupId/export/pdf
  * @access  Private
@@ -101,5 +140,8 @@ module.exports = {
   getMemberLedger,
   getAuditLog,
   exportGroupCSV,
+  exportMemberCSV,
+  exportMonthlySummaryCSV,
+  exportAuditLogCSV,
   exportGroupPDF,
 };

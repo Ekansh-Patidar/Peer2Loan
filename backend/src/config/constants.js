@@ -17,7 +17,10 @@ module.exports = {
   PAYMENT_STATUS: {
     PENDING: 'pending',
     PAID: 'paid',
+    UNDER_REVIEW: 'under_review',
+    VERIFIED: 'verified',
     CONFIRMED: 'confirmed',
+    REJECTED: 'rejected',
     LATE: 'late',
     DEFAULTED: 'defaulted'
   },

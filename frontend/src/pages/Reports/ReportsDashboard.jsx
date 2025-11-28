@@ -49,7 +49,11 @@ const ReportsDashboard = () => {
       ),
       color: 'green',
       action: () => {
-        navigate('/members');
+        if (selectedGroup) {
+          navigate(`/reports/member-ledger?groupId=${selectedGroup}`);
+        } else {
+          navigate('/reports/member-ledger');
+        }
       },
     },
     {
@@ -67,9 +71,9 @@ const ReportsDashboard = () => {
       color: 'purple',
       action: () => {
         if (selectedGroup) {
-          navigate(`/groups/${selectedGroup}/summary`);
+          navigate(`/reports/monthly-summary?groupId=${selectedGroup}`);
         } else {
-          alert('Please select a group first');
+          navigate('/reports/monthly-summary');
         }
       },
     },
@@ -85,9 +89,9 @@ const ReportsDashboard = () => {
       color: 'orange',
       action: () => {
         if (selectedGroup) {
-          navigate(`/groups/${selectedGroup}/audit`);
+          navigate(`/reports/audit-log?groupId=${selectedGroup}`);
         } else {
-          alert('Please select a group first');
+          navigate('/reports/audit-log');
         }
       },
     },

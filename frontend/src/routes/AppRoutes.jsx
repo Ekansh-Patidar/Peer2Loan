@@ -31,7 +31,7 @@ import { MembersDashboard } from '../pages/Members';
 import { NotificationsPage } from '../pages/Notifications';
 
 // Report Pages
-import { GroupLedger, MemberLedger, MonthlySummary, AuditLog, ReportsDashboard } from '../pages/Reports';
+import { GroupLedger, MemberLedger, MemberLedgerSelection, MonthlySummary, MonthlySummarySelection, AuditLog, AuditLogSelection, ReportsDashboard } from '../pages/Reports';
 
 // Component Demo Pages (Development only)
 import ComponentShowcase from '../components/ComponentShowcase';
@@ -194,6 +194,22 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/reports/member-ledger"
+        element={
+          <PrivateRoute>
+            <MemberLedgerSelection />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/reports/monthly-summary"
+        element={
+          <PrivateRoute>
+            <MonthlySummarySelection />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/groups/:groupId/ledger"
         element={
           <PrivateRoute>
@@ -210,10 +226,18 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/groups/:groupId/summary"
+        path="/groups/:groupId/summary/:cycleNumber"
         element={
           <PrivateRoute>
             <MonthlySummary />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/reports/audit-log"
+        element={
+          <PrivateRoute>
+            <AuditLogSelection />
           </PrivateRoute>
         }
       />

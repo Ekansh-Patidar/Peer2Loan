@@ -108,6 +108,7 @@ const getGroupDashboard = asyncHandler(async (req, res) => {
       totalCycles: group.duration,
     },
     activeCycle: activeCycle ? {
+      _id: activeCycle._id,
       cycleNumber: activeCycle.cycleNumber,
       startDate: activeCycle.startDate,
       endDate: activeCycle.endDate,

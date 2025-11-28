@@ -40,8 +40,8 @@ const activatePendingCycles = cron.schedule('1 0 * * *', async () => {
         status: 'active',
       });
 
-      const dueDate = new Date(cycle.startDate);
-      dueDate.setDate(group.paymentWindow.endDay);
+      // Due date should be the cycle end date
+      const dueDate = new Date(cycle.endDate);
 
       for (const member of members) {
         await Payment.create({

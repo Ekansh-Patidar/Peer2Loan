@@ -19,8 +19,8 @@ router.get('/:payoutId', isGroupMember, payoutController.getPayoutById);
 // Execute payout (organizer only)
 router.post(
   '/',
-  isGroupOrganizer,
   uploadSingle('payoutProof'),
+  isGroupOrganizer,
   payoutController.executePayout
 );
 

@@ -54,17 +54,35 @@ const memberSchema = new mongoose.Schema({
   },
   payoutAmount: {
     type: Number,
-    default: 0
+    default: 0,
+    set: function(val) {
+      return Math.round(val * 100) / 100;
+    },
+    get: function(val) {
+      return Math.round(val * 100) / 100;
+    }
   },
   
   // Payment tracking
   totalContributed: {
     type: Number,
-    default: 0
+    default: 0,
+    set: function(val) {
+      return Math.round(val * 100) / 100;
+    },
+    get: function(val) {
+      return Math.round(val * 100) / 100;
+    }
   },
   totalPenalties: {
     type: Number,
-    default: 0
+    default: 0,
+    set: function(val) {
+      return Math.round(val * 100) / 100;
+    },
+    get: function(val) {
+      return Math.round(val * 100) / 100;
+    }
   },
   missedPayments: {
     type: Number,
@@ -130,7 +148,9 @@ const memberSchema = new mongoose.Schema({
     type: String
   }]
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { getters: true },
+  toObject: { getters: true }
 });
 
 // Compound index to ensure unique user-group combination

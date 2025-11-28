@@ -55,10 +55,13 @@ const PaymentsDashboard = () => {
 
   const getStatusBadge = (status) => {
     const colors = {
-      confirmed: { bg: '#e8f5e9', color: '#2e7d32' },
       pending: { bg: '#fff3e0', color: '#f57c00' },
-      late: { bg: '#ffebee', color: '#c62828' },
+      paid: { bg: '#e3f2fd', color: '#1976d2' },
+      under_review: { bg: '#fff9c4', color: '#f57f17' },
+      verified: { bg: '#c8e6c9', color: '#388e3c' },
+      confirmed: { bg: '#e8f5e9', color: '#2e7d32' },
       rejected: { bg: '#ffebee', color: '#c62828' },
+      late: { bg: '#ffebee', color: '#c62828' },
     };
     const style = colors[status] || colors.pending;
     return (
@@ -73,7 +76,7 @@ const PaymentsDashboard = () => {
           color: style.color,
         }}
       >
-        {status}
+        {status.replace('_', ' ')}
       </span>
     );
   };
@@ -179,14 +182,15 @@ const PaymentsDashboard = () => {
   ];
 
   // Calculate stats
+  const paidStatuses = ['paid', 'under_review', 'verified', 'confirmed'];
   const stats = {
     totalPending: paymentList.filter((p) => p.status === 'pending' && p.type === 'contribution').length,
-    totalPaid: paymentList.filter((p) => p.status === 'confirmed').length,
+    totalPaid: paymentList.filter((p) => paidStatuses.includes(p.status)).length,
     pendingAmount: paymentList
       .filter((p) => p.status === 'pending' && p.type === 'contribution')
       .reduce((sum, p) => sum + p.amount, 0),
     paidAmount: paymentList
-      .filter((p) => p.status === 'confirmed')
+      .filter((p) => paidStatuses.includes(p.status))
       .reduce((sum, p) => sum + p.amount, 0),
   };
 
@@ -202,11 +206,9 @@ const PaymentsDashboard = () => {
           <Button 
             variant="primary" 
             onClick={() => {
-              if (groups && groups.length > 0) {
-                setShowRecordModal(true);
-              } else {
-                alert('You need to be part of a group to record payments');
-              }
+              console.log('Groups:', groups);
+              // Always allow opening the modal - it will show group selection
+              setShowRecordModal(true);
             }}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
@@ -333,13 +335,6 @@ const PaymentsDashboard = () => {
               onClick={() => setFilterStatus('paid')}
             >
               Paid
-            </Button>
-            <Button
-              variant={filterStatus === 'received' ? 'primary' : 'ghost'}
-              size="small"
-              onClick={() => setFilterStatus('received')}
-            >
-              Payouts
             </Button>
           </div>
         </Card>

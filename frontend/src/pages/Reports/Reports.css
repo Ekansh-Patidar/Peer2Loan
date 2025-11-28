@@ -345,3 +345,323 @@
     flex: 1;
   }
 }
+
+/* Cycle Card Styles */
+.cycle-details {
+  padding: 20px;
+  background: white;
+}
+
+.payout-info {
+  margin-top: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.payout-info h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.payout-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.payout-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.payout-item .label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.payout-item .value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+/* Group Ledger Specific Styles */
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-item .label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-item .value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 4px;
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: white;
+}
+
+.stat-icon.green {
+  background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+}
+
+.stat-icon.purple {
+  background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+}
+
+.stat-icon.yellow {
+  background: linear-gradient(135deg, #ffc107 0%, #ffa000 100%);
+}
+
+.stat-icon.blue {
+  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+}
+
+.stat-icon.red {
+  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+}
+
+.stat-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1;
+}
+
+.stat-subtext {
+  font-size: 12px;
+  color: #999;
+}
+
+/* Cycles List */
+.cycles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cycle-card {
+  border: 2px solid #f0f0f0;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.cycle-card:hover {
+  border-color: #e0e0e0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.cycle-header {
+  padding: 20px;
+  background: white;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: background 0.2s;
+}
+
+.cycle-header:hover {
+  background: #fafafa;
+}
+
+.cycle-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 180px;
+}
+
+.cycle-title h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.cycle-summary {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.cycle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cycle-info .label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cycle-info .value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.cycle-details {
+  padding: 24px;
+  background: #fafafa;
+  border-top: 1px solid #f0f0f0;
+}
+
+.cycle-details h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* Payments Table */
+.payments-table {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.payments-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.payments-table thead {
+  background: #f5f5f5;
+}
+
+.payments-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.payments-table td {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #1a1a1a;
+  border-top: 1px solid #f0f0f0;
+}
+
+.payments-table tbody tr {
+  transition: background 0.2s;
+}
+
+.payments-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.payments-table tbody tr.late-payment {
+  background: #fff3e0;
+}
+
+.payments-table tbody tr.late-payment:hover {
+  background: #ffe0b2;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
+  .cycle-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cycle-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .cycle-title {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .cycle-summary {
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .payments-table {
+    font-size: 12px;
+  }
+
+  .payments-table th,
+  .payments-table td {
+    padding: 8px 12px;
+  }
+}

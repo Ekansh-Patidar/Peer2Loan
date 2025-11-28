@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout';
 import { Card, Button, Table, Alert, Loader } from '../../components/common';
+import ExecutePayoutModal from '../../components/features/payouts/ExecutePayoutModal';
 import useAuth from '../../hooks/useAuth';
 import usePayouts from '../../hooks/usePayouts';
+import { useGroups } from '../../hooks/useGroups';
+import api from '../../services/api';
 import '../Groups/Groups.css';
 
 /**
@@ -12,14 +15,115 @@ import '../Groups/Groups.css';
 const PayoutsDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { payouts, loading, error, fetchAllPayouts } = usePayouts();
+  const { payouts, loading, error, executePayout } = usePayouts();
+  const { groups, loadGroups } = useGroups();
   const [filterStatus, setFilterStatus] = useState('all');
+  const [showExecuteModal, setShowExecuteModal] = useState(false);
+  const [selectedCycle, setSelectedCycle] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [cyclesReadyForPayout, setCyclesReadyForPayout] = useState([]);
+  const [loadingCycles, setLoadingCycles] = useState(false);
+  const [allPayouts, setAllPayouts] = useState([]);
 
+  // Fetch groups on mount
   useEffect(() => {
-    fetchAllPayouts();
-  }, [fetchAllPayouts]);
+    console.log('Loading groups...');
+    loadGroups();
+  }, [loadGroups]);
 
-  if (loading) {
+  // Fetch cycles ready for payout
+  useEffect(() => {
+    const fetchReadyCycles = async () => {
+      // Wait for groups to load
+      if (!groups) {
+        console.log('Groups not loaded yet, waiting...');
+        return;
+      }
+      
+      if (groups.length === 0) {
+        console.log('No groups available');
+        setCyclesReadyForPayout([]);
+        return;
+      }
+      
+      console.log('Fetching ready cycles for', groups.length, 'groups');
+      setLoadingCycles(true);
+      try {
+        const readyCycles = [];
+        
+        for (const group of groups) {
+          console.log('Checking group:', group.name, 'status:', group.status);
+          if (group.status === 'active') {
+            const response = await api.get(`/dashboard/group/${group._id}`);
+            const activeCycle = response.data?.activeCycle;
+            
+            console.log('Active cycle for', group.name, ':', activeCycle);
+            console.log('  isReadyForPayout:', activeCycle?.isReadyForPayout);
+            console.log('  isPayoutCompleted:', activeCycle?.isPayoutCompleted);
+            
+            if (activeCycle && activeCycle.isReadyForPayout && !activeCycle.isPayoutCompleted) {
+              console.log('✅ Adding cycle to ready list');
+              readyCycles.push({
+                ...activeCycle,
+                groupName: group.name,
+                groupId: group._id,
+              });
+            }
+          }
+        }
+        
+        console.log('Total ready cycles:', readyCycles.length);
+        setCyclesReadyForPayout(readyCycles);
+      } catch (err) {
+        console.error('Failed to fetch ready cycles:', err);
+      } finally {
+        setLoadingCycles(false);
+      }
+    };
+
+    // Add a small delay to ensure groups are loaded
+    const timer = setTimeout(() => {
+      fetchReadyCycles();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [groups]);
+
+  // Fetch all payouts from all groups
+  useEffect(() => {
+    const fetchAllPayouts = async () => {
+      if (!groups || groups.length === 0) return;
+      
+      try {
+        const allPayoutsData = [];
+        
+        for (const group of groups) {
+          const response = await api.get(`/payouts/group/${group._id}`);
+          const groupPayouts = response.data?.payouts || [];
+          allPayoutsData.push(...groupPayouts);
+        }
+        
+        setAllPayouts(allPayoutsData);
+      } catch (err) {
+        console.error('Failed to fetch payouts:', err);
+      }
+    };
+
+    fetchAllPayouts();
+  }, [groups]);
+
+  const handleExecutePayout = (cycle, group) => {
+    setSelectedCycle(cycle);
+    setSelectedGroup(group);
+    setShowExecuteModal(true);
+  };
+
+  const handlePayoutSuccess = () => {
+    // Refresh data
+    window.location.reload();
+  };
+
+  if (loading || loadingCycles) {
     return (
       <DashboardLayout user={user} onLogout={logout}>
         <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
@@ -29,7 +133,7 @@ const PayoutsDashboard = () => {
     );
   }
 
-  const payoutList = Array.isArray(payouts) ? payouts : [];
+  const payoutList = Array.isArray(allPayouts) ? allPayouts : [];
   const filteredPayouts = payoutList.filter((payout) =>
     filterStatus === 'all' ? true : payout.status === filterStatus
   );
@@ -66,17 +170,18 @@ const PayoutsDashboard = () => {
       key: 'group',
       render: (_, record) => (
         <div>
-          <div style={{ fontWeight: '600', color: '#1a1a1a' }}>{record.groupName}</div>
-          <div style={{ fontSize: '12px', color: '#666' }}>Cycle {record.cycleNumber}</div>
+          <div style={{ fontWeight: '600', color: '#1a1a1a' }}>{record.group?.name || 'Unknown'}</div>
+          <div style={{ fontSize: '12px', color: '#666' }}>Cycle {record.cycle?.cycleNumber || 'N/A'}</div>
         </div>
       ),
     },
     {
       title: 'Beneficiary',
-      dataIndex: 'beneficiaryName',
-      key: 'beneficiaryName',
-      render: (name) => (
-        <div style={{ fontWeight: '500', color: '#1a1a1a' }}>{name}</div>
+      key: 'beneficiary',
+      render: (_, record) => (
+        <div style={{ fontWeight: '500', color: '#1a1a1a' }}>
+          {record.beneficiary?.user?.name || 'Unknown'}
+        </div>
       ),
     },
     {
@@ -104,7 +209,7 @@ const PayoutsDashboard = () => {
             <div>
               <div style={{ fontSize: '13px', color: '#666' }}>Completed on</div>
               <div style={{ fontSize: '14px', fontWeight: '600' }}>
-                {new Date(record.completedDate).toLocaleDateString()}
+                {new Date(record.completedAt || record.processedAt).toLocaleDateString()}
               </div>
             </div>
           );
@@ -120,12 +225,12 @@ const PayoutsDashboard = () => {
       },
     },
     {
-      title: 'Payment Mode',
-      dataIndex: 'paymentMode',
-      key: 'paymentMode',
+      title: 'Transfer Mode',
+      dataIndex: 'transferMode',
+      key: 'transferMode',
       render: (mode) => (
         <span style={{ textTransform: 'capitalize', fontSize: '13px', color: '#666' }}>
-          {mode.replace('_', ' ')}
+          {mode?.replace('_', ' ') || 'N/A'}
         </span>
       ),
     },
@@ -134,30 +239,12 @@ const PayoutsDashboard = () => {
       key: 'actions',
       render: (_, record) => (
         <div style={{ display: 'flex', gap: '8px' }}>
-          {record.status === 'scheduled' && (
-            <Button
-              size="small"
-              variant="success"
-              onClick={() => alert('Process payout feature coming soon!')}
-            >
-              Process
-            </Button>
-          )}
-          {record.status === 'failed' && (
-            <Button
-              size="small"
-              variant="warning"
-              onClick={() => alert('Retry payout feature coming soon!')}
-            >
-              Retry
-            </Button>
-          )}
           <Button
             size="small"
             variant="outline"
-            onClick={() => alert('View details coming soon!')}
+            onClick={() => navigate(`/payouts/${record._id}`)}
           >
-            Details
+            View Details
           </Button>
         </div>
       ),
@@ -168,7 +255,7 @@ const PayoutsDashboard = () => {
   const stats = {
     totalPayouts: payoutList.length,
     completed: payoutList.filter((p) => p.status === 'completed').length,
-    scheduled: payoutList.filter((p) => p.status === 'scheduled').length,
+    scheduled: cyclesReadyForPayout.length,
     processing: payoutList.filter((p) => p.status === 'processing').length,
     totalAmount: payoutList
       .filter((p) => p.status === 'completed')
@@ -184,13 +271,25 @@ const PayoutsDashboard = () => {
             <h1>Payouts</h1>
             <p className="payments-dashboard-subtitle">Manage group payouts and disbursements</p>
           </div>
-          <Button variant="primary" onClick={() => alert('Schedule payout feature coming soon!')}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Schedule Payout
-          </Button>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {cyclesReadyForPayout.length > 0 && (
+              <div style={{ padding: '8px 16px', background: '#fef3c7', borderRadius: '8px', fontSize: '14px', fontWeight: '500', color: '#92400e' }}>
+                {cyclesReadyForPayout.length} cycle(s) ready for payout
+              </div>
+            )}
+            <Button
+              variant="outline"
+              size="small"
+              onClick={() => window.location.reload()}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px', marginRight: '4px' }}>
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Error Alert */}
@@ -265,42 +364,43 @@ const PayoutsDashboard = () => {
           </Card>
         </div>
 
-        {/* Scheduled Payouts Cards */}
-        {stats.scheduled > 0 && (
-          <Card title="Upcoming Payouts" subtitle="Action required">
+        {/* Cycles Ready for Payout */}
+        {cyclesReadyForPayout.length > 0 && (
+          <Card title="Cycles Ready for Payout" subtitle="Action required">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-              {payouts
-                .filter((p) => p.status === 'scheduled')
-                .map((payout) => (
-                  <div key={payout.id} className="payment-card">
-                    <div className="payment-card-header">
-                      <div>
-                        <div className="payment-card-group">{payout.groupName}</div>
-                        <div className="payment-card-cycle">Cycle {payout.cycleNumber}</div>
-                      </div>
-                      {getStatusBadge(payout.status)}
+              {cyclesReadyForPayout.map((cycle) => (
+                <div key={cycle._id} className="payment-card">
+                  <div className="payment-card-header">
+                    <div>
+                      <div className="payment-card-group">{cycle.groupName}</div>
+                      <div className="payment-card-cycle">Cycle {cycle.cycleNumber}</div>
                     </div>
-                    <div className="payment-card-body">
-                      <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>
-                        Beneficiary: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{payout.beneficiaryName}</span>
-                      </div>
-                      <div className="payment-card-amount">₹{payout.amount.toLocaleString()}</div>
-                      <div className="payment-card-due">
-                        Scheduled: {new Date(payout.scheduledDate).toLocaleDateString()}
-                      </div>
+                    <span style={{ padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '600', background: '#d1fae5', color: '#065f46' }}>Ready</span>
+                  </div>
+                  <div className="payment-card-body">
+                    <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>
+                      Beneficiary: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{cycle.beneficiary}</span>
                     </div>
-                    <div className="payment-card-footer">
-                      <Button
-                        variant="success"
-                        size="small"
-                        style={{ width: '100%' }}
-                        onClick={() => alert('Process payout feature coming soon!')}
-                      >
-                        Process Payout
-                      </Button>
+                    <div className="payment-card-amount">₹{cycle.collectedAmount?.toLocaleString()}</div>
+                    <div style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
+                      {cycle.paidCount}/{cycle.paidCount + cycle.pendingCount} members paid
                     </div>
                   </div>
-                ))}
+                  <div className="payment-card-footer">
+                    <Button
+                      variant="success"
+                      size="small"
+                      style={{ width: '100%' }}
+                      onClick={() => {
+                        const group = groups.find(g => g._id === cycle.groupId);
+                        handleExecutePayout(cycle, group);
+                      }}
+                    >
+                      Execute Payout
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           </Card>
         )}
@@ -360,6 +460,21 @@ const PayoutsDashboard = () => {
             </div>
           )}
         </Card>
+
+        {/* Execute Payout Modal */}
+        {showExecuteModal && (
+          <ExecutePayoutModal
+            isOpen={showExecuteModal}
+            onClose={() => {
+              setShowExecuteModal(false);
+              setSelectedCycle(null);
+              setSelectedGroup(null);
+            }}
+            cycle={selectedCycle}
+            group={selectedGroup}
+            onSuccess={handlePayoutSuccess}
+          />
+        )}
       </div>
     </DashboardLayout>
   );

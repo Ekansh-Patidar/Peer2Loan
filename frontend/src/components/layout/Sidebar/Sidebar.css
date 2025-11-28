@@ -155,16 +155,4 @@
   color: var(--primary-700);
 }
 
-@media (min-width: 1024px) {
-  .sidebar {
-    transform: translateX(0);
-  }
-
-  .sidebar-close {
-    display: none;
-  }
-
-  .sidebar-overlay {
-    display: none;
-  }
-}
+/* Sidebar is always hidden by default and opens on click */

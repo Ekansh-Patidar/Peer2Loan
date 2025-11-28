@@ -54,6 +54,40 @@ const isGroupMember = asyncHandler(async (req, res, next) => {
 });
 
 /**
+ * Check if user can access member data (for member ledger)
+ */
+const canAccessMemberData = asyncHandler(async (req, res, next) => {
+  const memberId = req.params.memberId;
+
+  if (!memberId) {
+    throw ApiError.badRequest('Member ID is required');
+  }
+
+  // Get the member to find their group
+  const targetMember = await Member.findById(memberId).populate('group');
+
+  if (!targetMember) {
+    throw ApiError.notFound('Member not found');
+  }
+
+  // Check if the requesting user is a member of the same group
+  const requestingUserMember = await Member.findOne({
+    user: req.user._id,
+    group: targetMember.group._id,
+    status: { $in: ['active', 'invited'] },
+  });
+
+  if (!requestingUserMember) {
+    throw ApiError.forbidden('You are not authorized to access this member data');
+  }
+
+  req.targetMember = targetMember;
+  req.member = requestingUserMember;
+  req.group = targetMember.group;
+  next();
+});
+
+/**
  * Check if user is organizer or auditor
  */
 const isOrganizerOrAuditor = asyncHandler(async (req, res, next) => {
@@ -144,6 +178,7 @@ const hasGroupRole = (...allowedRoles) => {
 module.exports = {
   isGroupOrganizer,
   isGroupMember,
+  canAccessMemberData,
   isOrganizerOrAuditor,
   hasGroupRole,
 };

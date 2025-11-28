@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Alert, Loader } from '../../../common';
+import UpiPayment from '../UpiPayment/UpiPayment';
 import api from '../../../../services/api';
 import './RecordPaymentModal.css';
 
@@ -19,6 +20,8 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
   const [loadingCycles, setLoadingCycles] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showUpiPayment, setShowUpiPayment] = useState(false);
+  const [organizerUpi, setOrganizerUpi] = useState(null);
 
   // Fetch user's groups
   useEffect(() => {
@@ -26,6 +29,19 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
       fetchGroups();
     }
   }, [isOpen, groupId]);
+
+  // Sync props with state when they change
+  useEffect(() => {
+    if (groupId) {
+      setFormData(prev => ({ ...prev, groupId }));
+    }
+    if (cycleId) {
+      setFormData(prev => ({ ...prev, cycleId }));
+    }
+    if (amount) {
+      setFormData(prev => ({ ...prev, amount }));
+    }
+  }, [groupId, cycleId, amount]);
 
   // Fetch cycles when group is selected
   useEffect(() => {
@@ -52,15 +68,39 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
       // Fetch active cycle for the group
       const response = await api.get(`/dashboard/group/${selectedGroupId}`);
       const activeCycle = response.data?.activeCycle;
+      console.log('Active cycle from API:', activeCycle);
       if (activeCycle) {
-        setCycles([{
-          _id: activeCycle.cycleNumber,
+        const cycleData = {
+          _id: activeCycle._id,
           cycleNumber: activeCycle.cycleNumber,
           startDate: activeCycle.startDate,
           endDate: activeCycle.endDate,
-        }]);
-        // Auto-select the active cycle
-        setFormData(prev => ({ ...prev, cycleId: activeCycle.cycleNumber }));
+        };
+        console.log('Setting cycles array:', [cycleData]);
+        console.log('Cycle _id:', cycleData._id);
+        setCycles([cycleData]);
+        
+        // Auto-select the active cycle after a small delay to ensure cycles are set
+        setTimeout(() => {
+          console.log('Auto-selecting cycle ID:', activeCycle._id);
+          setFormData(prev => {
+            const updated = { ...prev, cycleId: activeCycle._id };
+            console.log('Updated formData after timeout:', updated);
+            return updated;
+          });
+        }, 100);
+      }
+      
+      // Fetch group details to get organizer UPI
+      const groupResponse = await api.get(`/groups/${selectedGroupId}`);
+      const group = groupResponse.data?.group;
+      if (group?.organizer) {
+        // Fetch organizer's UPI details
+        const organizerResponse = await api.get(`/users/${group.organizer._id || group.organizer}`);
+        setOrganizerUpi({
+          upiId: organizerResponse.data?.user?.upiId || 'organizer@upi',
+          name: organizerResponse.data?.user?.name || group.organizer.name || 'Group Organizer'
+        });
       }
     } catch (err) {
       console.error('Failed to fetch cycles:', err);
@@ -71,6 +111,7 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    console.log('Field changed:', name, '=', value);
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -86,12 +127,46 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-
+  const handleUpiPayment = () => {
     if (!formData.groupId || !formData.cycleId) {
       setError('Please select a group and cycle');
+      return;
+    }
+
+    if (!formData.amount || formData.amount <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
+
+    setShowUpiPayment(true);
+  };
+
+  const handleUpiPaymentInitiated = async (upiData) => {
+    setFormData(prev => ({
+      ...prev,
+      paymentMode: upiData.paymentMode,
+      transactionRef: upiData.transactionRef,
+      notes: prev.notes + (prev.notes ? '\n' : '') + `Paid via ${upiData.upiApp}`
+    }));
+
+    // Submit the payment
+    await handleSubmit(null, upiData);
+  };
+
+  const handleSubmit = async (e, upiData = null) => {
+    if (e) e.preventDefault();
+    setError(null);
+
+    console.log('=== SUBMIT HANDLER ===');
+    console.log('Form data:', formData);
+    console.log('Form data.groupId:', formData.groupId);
+    console.log('Form data.cycleId:', formData.cycleId);
+    console.log('UPI data:', upiData);
+    console.log('Props - groupId:', groupId, 'cycleId:', cycleId);
+
+    if (!formData.groupId || !formData.cycleId) {
+      console.error('Validation failed - missing groupId or cycleId');
+      setError(`Please select a group and cycle. GroupId: ${formData.groupId}, CycleId: ${formData.cycleId}`);
       return;
     }
 
@@ -107,13 +182,31 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
       const submitData = new FormData();
       submitData.append('groupId', formData.groupId);
       submitData.append('cycleId', formData.cycleId);
-      submitData.append('amount', formData.amount);
-      submitData.append('paymentMode', formData.paymentMode);
-      submitData.append('transactionRef', formData.transactionRef);
-      submitData.append('notes', formData.notes);
+      // Convert to integer to avoid floating point issues, then convert back
+      const amountInPaise = Math.round(parseFloat(formData.amount) * 100);
+      const amountInRupees = amountInPaise / 100;
+      submitData.append('amount', amountInRupees.toFixed(2));
+      submitData.append('paymentMode', upiData?.paymentMode || formData.paymentMode);
+      
+      // Only add transactionId if it has a value
+      const transactionId = upiData?.transactionRef || formData.transactionRef;
+      if (transactionId && transactionId.trim()) {
+        submitData.append('transactionId', transactionId);
+      }
+      
+      // Only add memberRemarks if it has a value
+      if (formData.notes && formData.notes.trim()) {
+        submitData.append('memberRemarks', formData.notes);
+      }
       
       if (formData.paymentProof) {
         submitData.append('paymentProof', formData.paymentProof);
+      }
+
+      // Log what we're sending
+      console.log('Submitting payment with data:');
+      for (let [key, value] of submitData.entries()) {
+        console.log(`  ${key}:`, value);
       }
 
       const response = await api.post('/payments', submitData, {
@@ -128,7 +221,17 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
       
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to record payment');
+      console.error('Payment submission error:', err);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Error message:', err.message);
+      
+      const errorMessage = err.response?.data?.message 
+        || err.response?.data?.error 
+        || err.message 
+        || 'Failed to record payment';
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -149,12 +252,23 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="modal-body">
-          {error && (
-            <Alert type="error" closable onClose={() => setError(null)}>
-              {error}
-            </Alert>
-          )}
+        {showUpiPayment && organizerUpi ? (
+          <div className="modal-body">
+            <UpiPayment
+              amount={parseFloat(formData.amount)}
+              recipientUpi={organizerUpi.upiId}
+              recipientName={organizerUpi.name}
+              onPaymentInitiated={handleUpiPaymentInitiated}
+              onCancel={() => setShowUpiPayment(false)}
+            />
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="modal-body">
+            {error && (
+              <Alert type="error" closable onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
 
           {!groupId && (
             <div className="form-group">
@@ -217,9 +331,29 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
               placeholder="Enter amount"
               required
               min="1"
-              step="0.01"
+              step="1"
             />
           </div>
+
+          {formData.groupId && formData.cycleId && formData.amount && organizerUpi && (
+            <div className="upi-quick-pay">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleUpiPayment}
+                style={{ width: '100%', marginBottom: '16px' }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '20px', height: '20px', marginRight: '8px' }}>
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <line x1="2" y1="10" x2="22" y2="10" />
+                </svg>
+                Pay ₹{formData.amount} with UPI
+              </Button>
+              <div style={{ textAlign: 'center', margin: '16px 0', color: '#666', fontSize: '14px' }}>
+                OR enter payment details manually
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="paymentMode">Payment Mode *</label>
@@ -274,15 +408,16 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
             />
           </div>
 
-          <div className="modal-footer">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={loading}>
-              {loading ? 'Recording...' : 'Record Payment'}
-            </Button>
-          </div>
-        </form>
+            <div className="modal-footer">
+              <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" disabled={loading}>
+                {loading ? 'Recording...' : 'Record Payment'}
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

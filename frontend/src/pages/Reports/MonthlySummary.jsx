@@ -1,47 +1,70 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout';
-import { Card, Alert, Loader, Button, Table, Input } from '../../components/common';
-import reportService from '../../services/reportService';
+import { Card, Button, Alert, Loader } from '../../components/common';
 import useAuth from '../../hooks/useAuth';
+import api from '../../services/api';
 import './Reports.css';
 
-/**
- * MonthlySummary - Monthly/Cycle-wise summary report
- */
 const MonthlySummary = () => {
-  const { groupId } = useParams();
+  const { groupId, cycleNumber } = useParams();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [data, setData] = useState(null);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedCycle, setSelectedCycle] = useState(1);
 
   useEffect(() => {
-    if (selectedCycle) {
-      fetchSummary();
-    }
-  }, [groupId, selectedCycle]);
+    fetchSummary();
+  }, [groupId, cycleNumber]);
 
   const fetchSummary = async () => {
     try {
       setLoading(true);
-      setError(null);
-      const response = await reportService.getMonthlySummary(groupId, selectedCycle);
-      setData(response.data);
+      const response = await api.get(`/reports/group/${groupId}/monthly/${cycleNumber}`);
+      const data = response.data || response;
+      setSummary(data);
     } catch (err) {
-      setError(err.message || 'Failed to fetch monthly summary');
+      setError(err.message || 'Failed to load monthly summary');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      const token = localStorage.getItem('peer2loan_token');
+      const baseURL = 'http://localhost:5000/api/v1';
+      const response = await fetch(`${baseURL}/reports/group/${groupId}/monthly/${cycleNumber}/export/csv`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to export CSV');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `monthly-summary-cycle-${cycleNumber}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error:', err);
+      alert('Failed to export CSV: ' + err.message);
     }
   };
 
   if (loading) {
     return (
       <DashboardLayout user={user} onLogout={logout}>
-        <div className="reports-loading">
-          <Loader variant="spinner" size="large" />
-          <p>Loading summary...</p>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '64px' }}>
+          <Loader variant="spinner" size="large" text="Loading monthly summary..." />
         </div>
       </DashboardLayout>
     );
@@ -50,77 +73,49 @@ const MonthlySummary = () => {
   if (error) {
     return (
       <DashboardLayout user={user} onLogout={logout}>
-        <Alert type="error" title="Error">
-          {error}
-        </Alert>
-        <Button onClick={fetchSummary} style={{ marginTop: '16px' }}>
-          Retry
+        <Alert type="error">{error}</Alert>
+        <Button onClick={() => navigate('/reports/monthly-summary')} style={{ marginTop: '16px' }}>
+          Back to Cycle Selection
         </Button>
       </DashboardLayout>
     );
   }
 
-  if (!data) {
+  if (!summary || !summary.cycle || !summary.beneficiary || !summary.financials) {
     return (
       <DashboardLayout user={user} onLogout={logout}>
-        <Alert type="info">No summary data available</Alert>
+        <Alert type="error">Unable to load monthly summary data</Alert>
+        <Button onClick={() => navigate('/reports/monthly-summary')} style={{ marginTop: '16px' }}>
+          Back to Cycle Selection
+        </Button>
       </DashboardLayout>
     );
   }
 
-  const { group, cycle, payments, summary } = data;
-
-  // Payment status table columns
-  const paymentColumns = [
-    {
-      title: 'Turn',
-      dataIndex: 'turnNumber',
-      key: 'turnNumber',
-      render: (turn) => `#${turn}`,
-    },
-    {
-      title: 'Member',
-      dataIndex: 'memberName',
-      key: 'memberName',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => (
-        <span
-          style={{
-            padding: '4px 12px',
-            borderRadius: '12px',
-            fontSize: '12px',
-            fontWeight: '500',
-            background: status === 'paid' ? '#e8f5e9' : status === 'pending' ? '#fff3e0' : '#ffebee',
-            color: status === 'paid' ? '#2e7d32' : status === 'pending' ? '#f57c00' : '#c62828',
-          }}
-        >
-          {status.toUpperCase()}
-        </span>
-      ),
-    },
-    {
-      title: 'Amount',
-      dataIndex: 'amount',
-      key: 'amount',
-      render: (amount) => `₹${amount.toLocaleString()}`,
-    },
-    {
-      title: 'Paid On',
-      dataIndex: 'paidAt',
-      key: 'paidAt',
-      render: (date) => (date ? new Date(date).toLocaleDateString() : '-'),
-    },
-    {
-      title: 'Late Fee',
-      dataIndex: 'lateFee',
-      key: 'lateFee',
-      render: (fee) => (fee > 0 ? `₹${fee}` : '-'),
-    },
-  ];
+  const getStatusBadge = (status) => {
+    const colors = {
+      pending: { bg: '#fff3e0', color: '#f57c00' },
+      paid: { bg: '#e3f2fd', color: '#1976d2' },
+      verified: { bg: '#c8e6c9', color: '#388e3c' },
+      confirmed: { bg: '#e8f5e9', color: '#2e7d32' },
+      completed: { bg: '#e3f2fd', color: '#1976d2' },
+      active: { bg: '#e8f5e9', color: '#2e7d32' },
+    };
+    const style = colors[status] || colors.pending;
+    return (
+      <span style={{
+        padding: '4px 12px',
+        borderRadius: '12px',
+        fontSize: '11px',
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        background: style.bg,
+        color: style.color,
+      }}>
+        {status}
+      </span>
+    );
+  };
 
   return (
     <DashboardLayout user={user} onLogout={logout}>
@@ -128,19 +123,23 @@ const MonthlySummary = () => {
         {/* Header */}
         <div className="reports-header">
           <div>
-            <h1>Monthly Summary</h1>
-            <p className="reports-subtitle">{group.name}</p>
+            <Button variant="ghost" onClick={() => navigate('/reports/monthly-summary')} style={{ marginBottom: '8px' }}>
+              ← Back to Cycle Selection
+            </Button>
+            <h1>Monthly Summary - Cycle {summary.cycle.cycleNumber}</h1>
+            <p className="reports-subtitle">
+              {new Date(summary.cycle.startDate).toLocaleDateString()} - {new Date(summary.cycle.endDate).toLocaleDateString()}
+            </p>
           </div>
-          <div className="reports-actions">
-            <Input
-              type="number"
-              min="1"
-              max={group.totalCycles}
-              value={selectedCycle}
-              onChange={(e) => setSelectedCycle(parseInt(e.target.value))}
-              label="Cycle"
-              style={{ width: '120px' }}
-            />
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <Button variant="outline" onClick={handleExportCSV}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px', marginRight: '4px' }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Export CSV
+            </Button>
             <Button variant="primary" onClick={fetchSummary}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '16px', height: '16px' }}>
                 <polyline points="23 4 23 10 17 10" />
@@ -152,131 +151,155 @@ const MonthlySummary = () => {
           </div>
         </div>
 
-        {/* Cycle Info */}
-        <Card title={`Cycle ${cycle.cycleNumber} Details`} variant="elevated">
-          <div className="cycle-details-grid">
-            <div className="detail-item">
-              <span className="label">Beneficiary:</span>
-              <span className="value">{cycle.beneficiary} (Turn {cycle.beneficiaryTurn})</span>
+        {/* Cycle Status */}
+        <Card title="Cycle Status">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>Status</div>
+              {getStatusBadge(summary.cycle.status)}
             </div>
-            <div className="detail-item">
-              <span className="label">Period:</span>
-              <span className="value">
-                {new Date(cycle.startDate).toLocaleDateString()} - {new Date(cycle.endDate).toLocaleDateString()}
-              </span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Status:</span>
-              <span className="value">
-                <span
-                  style={{
-                    padding: '4px 12px',
-                    borderRadius: '12px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    textTransform: 'uppercase',
-                    background:
-                      cycle.status === 'completed' ? '#e8f5e9' : cycle.status === 'active' ? '#e3f2fd' : '#fff3e0',
-                    color: cycle.status === 'completed' ? '#2e7d32' : cycle.status === 'active' ? '#1976d2' : '#f57c00',
-                  }}
-                >
-                  {cycle.status}
-                </span>
-              </span>
-            </div>
-            <div className="detail-item">
-              <span className="label">Payout Status:</span>
-              <span className="value">{cycle.isPayoutCompleted ? 'Completed' : 'Pending'}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>Beneficiary</div>
+              <div style={{ fontSize: '16px', fontWeight: '600' }}>
+                {summary.beneficiary.name} (Turn #{summary.beneficiary.turnNumber})
+              </div>
             </div>
           </div>
         </Card>
 
-        {/* Summary Stats */}
-        <div className="summary-stats-grid">
+        {/* Financial Summary */}
+        <div className="stats-grid">
           <Card variant="elevated">
-            <div className="summary-stat">
-              <div className="summary-stat-label">Expected Amount</div>
-              <div className="summary-stat-value">₹{summary.expectedAmount.toLocaleString()}</div>
+            <div className="stat-card">
+              <div className="stat-icon green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </div>
+              <div className="stat-content">
+                <div className="stat-label">Collected Amount</div>
+                <div className="stat-value">₹{summary.financials.collectedAmount.toLocaleString()}</div>
+                <div className="stat-subtext">of ₹{summary.financials.expectedAmount.toLocaleString()}</div>
+              </div>
             </div>
           </Card>
-          <Card variant="elevated">
-            <div className="summary-stat">
-              <div className="summary-stat-label">Collected Amount</div>
-              <div className="summary-stat-value green">₹{summary.collectedAmount.toLocaleString()}</div>
-              <div className="summary-stat-subtext">{summary.collectionPercentage}% collected</div>
-            </div>
-          </Card>
-          <Card variant="elevated">
-            <div className="summary-stat">
-              <div className="summary-stat-label">Payout Amount</div>
-              <div className="summary-stat-value blue">₹{summary.payoutAmount.toLocaleString()}</div>
-            </div>
-          </Card>
-          <Card variant="elevated">
-            <div className="summary-stat">
-              <div className="summary-stat-label">Late Fees</div>
-              <div className="summary-stat-value red">₹{summary.totalLateFees.toLocaleString()}</div>
-            </div>
-          </Card>
-        </div>
 
-        {/* Payment Status Overview */}
-        <div className="payment-status-grid">
-          <Card variant="outlined">
-            <div className="status-overview-item">
-              <div className="status-icon green">
+          <Card variant="elevated">
+            <div className="stat-card">
+              <div className="stat-icon blue">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                  <polyline points="22 4 12 14.01 9 11.01" />
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
                 </svg>
               </div>
-              <div className="status-content">
-                <div className="status-label">Paid</div>
-                <div className="status-value">{summary.paidCount}</div>
+              <div className="stat-content">
+                <div className="stat-label">Variance</div>
+                <div className="stat-value" style={{ color: summary.financials.variance >= 0 ? '#2e7d32' : '#c62828' }}>
+                  {summary.financials.variance >= 0 ? '+' : ''}₹{summary.financials.variance.toLocaleString()}
+                </div>
+                <div className="stat-subtext">{summary.financials.variance >= 0 ? 'Surplus' : 'Deficit'}</div>
               </div>
             </div>
           </Card>
-          <Card variant="outlined">
-            <div className="status-overview-item">
-              <div className="status-icon yellow">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-              </div>
-              <div className="status-content">
-                <div className="status-label">Pending</div>
-                <div className="status-value">{summary.pendingCount}</div>
-              </div>
-            </div>
-          </Card>
-          <Card variant="outlined">
-            <div className="status-overview-item">
-              <div className="status-icon red">
+
+          <Card variant="elevated">
+            <div className="stat-card">
+              <div className="stat-icon red">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="8" x2="12" y2="12" />
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               </div>
-              <div className="status-content">
-                <div className="status-label">Late</div>
-                <div className="status-value">{summary.lateCount}</div>
+              <div className="stat-content">
+                <div className="stat-label">Total Penalties</div>
+                <div className="stat-value">₹{(summary.financials.totalPenalties || 0).toLocaleString()}</div>
               </div>
             </div>
           </Card>
         </div>
 
-        {/* Payment Details Table */}
-        <Card title="Payment Details" subtitle={`${payments.length} member(s)`}>
-          {payments.length > 0 ? (
-            <Table columns={paymentColumns} data={payments} striped hoverable />
+        {/* Payments */}
+        <Card title="Payments" subtitle={`${summary.payments?.length || 0} members`}>
+          {summary.payments && summary.payments.length > 0 ? (
+            <div className="payments-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Member</th>
+                    <th>Turn</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Paid At</th>
+                    <th>Late</th>
+                    <th>Days Late</th>
+                    <th>Late Fee</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.payments.map((payment, idx) => (
+                    <tr key={idx} className={payment.isLate ? 'late-payment' : ''}>
+                      <td>{payment.member}</td>
+                      <td>#{payment.turnNumber}</td>
+                      <td>₹{payment.amount.toLocaleString()}</td>
+                      <td>{getStatusBadge(payment.status)}</td>
+                      <td>{payment.paidAt ? new Date(payment.paidAt).toLocaleDateString() : 'N/A'}</td>
+                      <td>{payment.isLate ? 'Yes' : 'No'}</td>
+                      <td>{payment.daysLate || 0}</td>
+                      <td>{payment.lateFee ? `₹${payment.lateFee}` : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            <div className="empty-state">
-              <p>No payment data available</p>
+            <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+              No payment data available
             </div>
           )}
         </Card>
+
+        {/* Payout */}
+        {summary.payout && (
+          <Card title="Payout Information">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+              <div>
+                <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Amount</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#2e7d32' }}>
+                  ₹{summary.payout.amount.toLocaleString()}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Status</div>
+                {getStatusBadge(summary.payout.status)}
+              </div>
+              {summary.payout.completedAt && (
+                <div>
+                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Completed</div>
+                  <div style={{ fontSize: '16px', fontWeight: '600' }}>
+                    {new Date(summary.payout.completedAt).toLocaleDateString()}
+                  </div>
+                </div>
+              )}
+              {summary.payout.transferReference && (
+                <div>
+                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Reference</div>
+                  <div style={{ fontSize: '14px', fontWeight: '500' }}>
+                    {summary.payout.transferReference}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Summary Text */}
+        {summary.summary && (
+          <Card title="Summary">
+            <div style={{ padding: '16px', background: '#f5f5f5', borderRadius: '8px', fontSize: '14px', lineHeight: '1.6' }}>
+              {summary.summary}
+            </div>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );

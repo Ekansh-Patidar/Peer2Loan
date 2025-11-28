@@ -26,7 +26,15 @@ const paymentSchema = new mongoose.Schema({
   amount: {
     type: Number,
     required: [true, 'Payment amount is required'],
-    min: [0, 'Amount cannot be negative']
+    min: [0, 'Amount cannot be negative'],
+    set: function(val) {
+      // Round to 2 decimal places to avoid floating point issues
+      return Math.round(val * 100) / 100;
+    },
+    get: function(val) {
+      // Ensure we always return properly rounded value
+      return Math.round(val * 100) / 100;
+    }
   },
   currency: {
     type: String,
@@ -116,7 +124,9 @@ const paymentSchema = new mongoose.Schema({
     location: String
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { getters: true },
+  toObject: { getters: true }
 });
 
 // Indexes
@@ -130,14 +140,25 @@ paymentSchema.index({ paidAt: 1 });
 // Compound unique index to prevent duplicate payments for same cycle
 paymentSchema.index({ member: 1, cycle: 1 }, { unique: true });
 
-// Calculate days late before saving
+// Round amount before saving to avoid floating point issues
 paymentSchema.pre('save', function(next) {
-  if (this.paidAt && this.dueDate) {
-    const daysDiff = Math.floor((this.paidAt - this.dueDate) / (1000 * 60 * 60 * 24));
-    if (daysDiff > 0) {
-      this.daysLate = daysDiff;
-      this.isLate = true;
-    }
+  if (this.amount) {
+    this.amount = Math.round(this.amount * 100) / 100;
+  }
+  next();
+});
+
+// Calculate days late before saving
+// Note: isLate should be set by the service layer which has access to group data
+// This hook only calculates daysLate if isLate is already set
+paymentSchema.pre('save', function(next) {
+  if (this.paidAt && this.dueDate && this.isLate) {
+    // Calculate days late from due date (grace period already considered by service)
+    const daysDiff = Math.ceil((this.paidAt - this.dueDate) / (1000 * 60 * 60 * 24));
+    this.daysLate = daysDiff > 0 ? daysDiff : 0;
+  } else if (!this.isLate) {
+    // If not late, ensure daysLate is 0
+    this.daysLate = 0;
   }
   next();
 });

@@ -175,31 +175,64 @@ const activateGroup = async (groupId) => {
   }
 
   // Check if all members are confirmed
-  const memberCount = await Member.countDocuments({
+  const members = await Member.find({
     group: groupId,
     status: MEMBER_STATUS.ACTIVE,
-  });
+  }).sort({ turnNumber: 1 });
 
-  if (memberCount < group.memberCount) {
+  const requiredMemberCount = group.memberCount || members.length;
+  
+  if (members.length < 2) {
     throw ApiError.badRequest(
-      `Cannot activate group. ${memberCount}/${group.memberCount} members confirmed`
+      `Cannot activate group. At least 2 active members required. Currently ${members.length} member(s).`
     );
   }
+
+  // Update group member count and duration to match actual active members
+  if (members.length !== group.memberCount) {
+    group.memberCount = members.length;
+    group.duration = members.length;
+    await group.save();
+  }
+
+  // Ensure turnOrder is populated
+  if (!group.turnOrder || group.turnOrder.length === 0) {
+    // Generate turn order from members
+    group.turnOrder = members.map(member => ({
+      memberId: member._id,
+      turnNumber: member.turnNumber,
+      scheduledMonth: member.turnNumber,
+    }));
+    await group.save();
+  }
+
+  // Delete any existing cycles (in case of previous failed activation)
+  await Cycle.deleteMany({ group: groupId });
 
   // Generate cycles
   const cycleDates = generateCycleDates(group.startDate, group.duration);
 
   for (const cycleData of cycleDates) {
     // Get beneficiary for this cycle
-    const turnAssignment = group.turnOrder.find(
+    let turnAssignment = group.turnOrder.find(
       (t) => t.turnNumber === cycleData.cycleNumber
     );
 
+    // If no turn assignment found, create one from members
     if (!turnAssignment) {
-      throw ApiError.badRequest(`No beneficiary assigned for cycle ${cycleData.cycleNumber}`);
+      const member = members.find(m => m.turnNumber === cycleData.cycleNumber);
+      if (!member) {
+        throw ApiError.badRequest(`No member assigned for turn ${cycleData.cycleNumber}`);
+      }
+      turnAssignment = {
+        memberId: member._id,
+        turnNumber: cycleData.cycleNumber,
+        scheduledMonth: cycleData.cycleNumber,
+      };
+      group.turnOrder.push(turnAssignment);
     }
 
-    await Cycle.create({
+    const cycle = await Cycle.create({
       group: groupId,
       cycleNumber: cycleData.cycleNumber,
       startDate: cycleData.startDate,
@@ -210,12 +243,30 @@ const activateGroup = async (groupId) => {
       totalMembers: group.memberCount,
       status: cycleData.cycleNumber === 1 ? CYCLE_STATUS.ACTIVE : CYCLE_STATUS.PENDING,
     });
+
+    // Create pending payment records for all members for this cycle
+    const Payment = require('../models/Payment.model');
+    const paymentDueDate = new Date(cycleData.endDate);
+    
+    for (const member of members) {
+      await Payment.create({
+        group: groupId,
+        member: member._id,
+        cycle: cycle._id,
+        cycleNumber: cycleData.cycleNumber,
+        amount: group.monthlyContribution,
+        currency: group.currency,
+        paymentMode: 'upi', // Default, can be changed when recording
+        status: PAYMENT_STATUS.PENDING,
+        dueDate: paymentDueDate,
+      });
+    }
   }
 
   // Update group status
   group.status = GROUP_STATUS.ACTIVE;
   group.currentCycle = 1;
-  group.stats.activeMembers = memberCount;
+  group.stats.activeMembers = members.length;
   await group.save();
 
   return group;

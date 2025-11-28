@@ -328,17 +328,110 @@ const exportGroupCSV = async (groupId) => {
   let csv = 'Cycle Number,Start Date,End Date,Beneficiary,Expected Amount,Collected Amount,Payout Amount,Status\n';
 
   ledger.cycles.forEach((cycle) => {
-    csv += `${cycle.cycleNumber},${cycle.startDate.toISOString().split('T')[0]},${cycle.endDate.toISOString().split('T')[0]},${cycle.beneficiary},${cycle.expectedAmount},${cycle.collectedAmount},${cycle.payoutAmount || 0},${cycle.status}\n`;
+    const startDate = cycle.startDate ? new Date(cycle.startDate).toISOString().split('T')[0] : 'N/A';
+    const endDate = cycle.endDate ? new Date(cycle.endDate).toISOString().split('T')[0] : 'N/A';
+    csv += `${cycle.cycleNumber || 'N/A'},${startDate},${endDate},${cycle.beneficiary || 'N/A'},${cycle.expectedAmount || 0},${cycle.collectedAmount || 0},${cycle.payoutAmount || 0},${cycle.status || 'N/A'}\n`;
   });
 
   csv += '\n\nPayment Details\n';
   csv += 'Cycle,Member,Turn Number,Amount,Status,Paid At,Is Late,Late Fee\n';
 
   ledger.cycles.forEach((cycle) => {
-    cycle.payments.forEach((payment) => {
-      csv += `${cycle.cycleNumber},${payment.member},${payment.turnNumber},${payment.amount},${payment.status},${payment.paidAt ? payment.paidAt.toISOString().split('T')[0] : 'N/A'},${payment.isLate ? 'Yes' : 'No'},${payment.lateFee || 0}\n`;
-    });
+    if (cycle.payments && cycle.payments.length > 0) {
+      cycle.payments.forEach((payment) => {
+        const paidAt = payment.paidAt ? new Date(payment.paidAt).toISOString().split('T')[0] : 'N/A';
+        csv += `${cycle.cycleNumber || 'N/A'},${payment.member || 'N/A'},${payment.turnNumber || 'N/A'},${payment.amount || 0},${payment.status || 'N/A'},${paidAt},${payment.isLate ? 'Yes' : 'No'},${payment.lateFee || 0}\n`;
+      });
+    }
   });
+
+  return csv;
+};
+
+/**
+ * Export member ledger as CSV
+ */
+const exportMemberCSV = async (memberId) => {
+  const ledger = await getMemberLedger(memberId);
+
+  let csv = `Member Ledger - ${ledger.member.name}\n`;
+  csv += `Group: ${ledger.group.name}\n`;
+  csv += `Turn Number: ${ledger.member.turnNumber}\n\n`;
+
+  csv += 'Summary\n';
+  csv += 'Total Contributed,Payout Received,Total Penalties,Net Position\n';
+  csv += `${ledger.summary.totalContributed},${ledger.summary.payoutReceived},${ledger.summary.totalPenalties},${ledger.summary.netPosition}\n\n`;
+
+  csv += 'Contribution History\n';
+  csv += 'Cycle,Date,Amount,Status,Is Late,Late Fee\n';
+
+  ledger.contributionHistory.forEach((payment) => {
+    const date = payment.date ? new Date(payment.date).toISOString().split('T')[0] : 'N/A';
+    csv += `${payment.cycleNumber || 'N/A'},${date},${payment.amount || 0},${payment.status || 'N/A'},${payment.isLate ? 'Yes' : 'No'},${payment.lateFee || 0}\n`;
+  });
+
+  if (ledger.payout) {
+    csv += '\nPayout Information\n';
+    csv += 'Amount,Date,Reference\n';
+    const payoutDate = ledger.payout.date ? new Date(ledger.payout.date).toISOString().split('T')[0] : 'N/A';
+    csv += `${ledger.payout.amount},${payoutDate},${ledger.payout.reference || 'N/A'}\n`;
+  }
+
+  return csv;
+};
+
+/**
+ * Export audit log as CSV
+ */
+const exportAuditLogCSV = async (groupId) => {
+  const auditData = await getAuditLog(groupId, { page: 1, limit: 10000 }); // Get all logs
+
+  let csv = 'Audit Log\n';
+  csv += 'Timestamp,Action,Description,Performed By,Affected Member\n';
+
+  auditData.logs.forEach((log) => {
+    const timestamp = new Date(log.timestamp).toISOString();
+    const description = `"${log.description.replace(/"/g, '""')}"`;
+    csv += `${timestamp},${log.action},${description},${log.performedBy},${log.affectedMember || 'N/A'}\n`;
+  });
+
+  return csv;
+};
+
+/**
+ * Export monthly summary as CSV
+ */
+const exportMonthlySummaryCSV = async (groupId, cycleNumber) => {
+  const summary = await getMonthlySummary(groupId, cycleNumber);
+
+  let csv = `Monthly Summary - Cycle ${cycleNumber}\n`;
+  csv += `Period: ${new Date(summary.cycle.startDate).toLocaleDateString()} - ${new Date(summary.cycle.endDate).toLocaleDateString()}\n`;
+  csv += `Beneficiary: ${summary.beneficiary.name} (Turn #${summary.beneficiary.turnNumber})\n`;
+  csv += `Status: ${summary.cycle.status}\n\n`;
+
+  csv += 'Financial Summary\n';
+  csv += 'Expected Amount,Collected Amount,Variance,Total Penalties\n';
+  csv += `${summary.financials.expectedAmount},${summary.financials.collectedAmount},${summary.financials.variance},${summary.financials.totalPenalties}\n\n`;
+
+  csv += 'Payment Details\n';
+  csv += 'Member,Turn Number,Amount,Status,Paid At,Due Date,Is Late,Days Late,Late Fee\n';
+
+  summary.payments.forEach((payment) => {
+    const paidAt = payment.paidAt ? new Date(payment.paidAt).toISOString().split('T')[0] : 'N/A';
+    const dueDate = payment.dueDate ? new Date(payment.dueDate).toISOString().split('T')[0] : 'N/A';
+    csv += `${payment.member},${payment.turnNumber},${payment.amount},${payment.status},${paidAt},${dueDate},${payment.isLate ? 'Yes' : 'No'},${payment.daysLate || 0},${payment.lateFee || 0}\n`;
+  });
+
+  if (summary.payout) {
+    csv += '\nPayout Information\n';
+    csv += 'Amount,Status,Transfer Mode,Transfer Reference,Completed At\n';
+    const completedAt = summary.payout.completedAt ? new Date(summary.payout.completedAt).toISOString().split('T')[0] : 'N/A';
+    csv += `${summary.payout.amount},${summary.payout.status},${summary.payout.transferMode || 'N/A'},${summary.payout.transferReference || 'N/A'},${completedAt}\n`;
+  }
+
+  if (summary.summary) {
+    csv += `\nSummary\n"${summary.summary}"\n`;
+  }
 
   return csv;
 };
@@ -362,5 +455,8 @@ module.exports = {
   getMemberLedger,
   getAuditLog,
   exportGroupCSV,
+  exportMemberCSV,
+  exportMonthlySummaryCSV,
+  exportAuditLogCSV,
   exportGroupPDF,
 };

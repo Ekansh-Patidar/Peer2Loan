@@ -21,8 +21,8 @@ router.use(authenticate);
 // Record payment (with optional proof upload)
 router.post(
   '/',
-  isGroupMember,
   uploadSingle('paymentProof'),
+  isGroupMember,
   recordPaymentValidator,
   validate,
   paymentController.recordPayment
