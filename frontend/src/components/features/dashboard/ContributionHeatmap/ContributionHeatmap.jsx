@@ -8,12 +8,16 @@ const ContributionHeatmap = ({ data = [] }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'paid':
+      case 'confirmed':
+      case 'verified':
         return 'success';
       case 'pending':
+      case 'under_review':
         return 'warning';
       case 'late':
         return 'error';
       case 'missed':
+      case 'defaulted':
         return 'missed';
       default:
         return 'default';
@@ -23,15 +27,20 @@ const ContributionHeatmap = ({ data = [] }) => {
   const getStatusLabel = (status) => {
     switch (status) {
       case 'paid':
+      case 'confirmed':
+      case 'verified':
         return 'Paid';
       case 'pending':
         return 'Pending';
+      case 'under_review':
+        return 'Under Review';
       case 'late':
         return 'Late';
       case 'missed':
+      case 'defaulted':
         return 'Missed';
       default:
-        return 'Unknown';
+        return 'Pending';
     }
   };
 

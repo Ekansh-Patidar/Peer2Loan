@@ -45,8 +45,10 @@ const recordPayment = async (paymentData) => {
     cycle: cycleId,
   });
 
-  // If payment exists and is already paid/verified, don't allow duplicate
-  if (existingPayment && existingPayment.status !== PAYMENT_STATUS.PENDING) {
+  // Allow re-recording if status is pending or rejected
+  // Block if already under_review, confirmed, or paid
+  const allowedStatuses = [PAYMENT_STATUS.PENDING, PAYMENT_STATUS.REJECTED];
+  if (existingPayment && !allowedStatuses.includes(existingPayment.status)) {
     throw ApiError.conflict('Payment already recorded for this cycle');
   }
 
@@ -63,9 +65,10 @@ const recordPayment = async (paymentData) => {
   );
   const isLate = paymentDate > gracePeriodEnd;
 
-  // Use the amount directly - it should be a whole number from the form
-  const parsedAmount = Number(amount);
-  console.log('Recording payment - received amount:', amount, 'parsed:', parsedAmount);
+  // Use the amount directly - extract only digits and parse as integer
+  const cleanAmount = String(amount).replace(/[^0-9]/g, '');
+  const parsedAmount = parseInt(cleanAmount, 10) || 0;
+  console.log('Payment Service - received:', amount, 'clean:', cleanAmount, 'parsed:', parsedAmount);
 
   // Update existing pending payment or create new one
   let payment;
@@ -106,29 +109,29 @@ const recordPayment = async (paymentData) => {
     await penaltyService.applyLateFee(payment, userId);
   }
 
-  // Update member statistics
+  // Update member statistics - use parsedAmount (integer) not raw amount
   const member = await Member.findById(memberId);
-  member.totalContributed = Math.round(Number(member.totalContributed) + Number(amount));
-  
+  member.totalContributed = Math.round(member.totalContributed) + parsedAmount;
+
   if (isLate) {
     member.latePayments += 1;
     member.paymentStreak = 0;
   } else {
     member.paymentStreak += 1;
   }
-  
+
   member.calculatePerformanceScore();
   await member.save();
 
   // Update cycle statistics
   await cycle.updatePaymentCounts();
-  
+
   // Check if cycle is ready for payout (100% quorum by default)
   await cycle.checkPayoutReadiness(100);
 
-  // Update group statistics
+  // Update group statistics - use parsedAmount (integer)
   const group = await Group.findById(groupId);
-  group.stats.totalCollected = Math.round(Number(group.stats.totalCollected) + Number(amount));
+  group.stats.totalCollected = Math.round(group.stats.totalCollected) + parsedAmount;
   await group.save();
 
   // Log action
@@ -146,7 +149,7 @@ const recordPayment = async (paymentData) => {
   try {
     const group = await Group.findById(groupId).populate('organizer', 'name email');
     const member = await Member.findById(memberId).populate('user', 'name');
-    
+
     if (group && group.organizer) {
       await Notification.createNotification({
         user: group.organizer._id,
@@ -330,6 +333,12 @@ const confirmPayment = async (paymentId, adminId, adminRemarks) => {
   payment.adminRemarks = adminRemarks;
   await payment.save();
 
+  // Update cycle statistics after confirming payment
+  const cycle = await Cycle.findById(payment.cycle);
+  if (cycle) {
+    await cycle.updatePaymentCounts();
+  }
+
   // Log action
   await AuditLog.logAction({
     groupId: payment.group,
@@ -344,7 +353,7 @@ const confirmPayment = async (paymentId, adminId, adminRemarks) => {
   try {
     const member = await Member.findById(payment.member).populate('user', 'name email');
     const group = await Group.findById(payment.group).select('name');
-    
+
     if (member && member.user) {
       await Notification.createNotification({
         user: member.user._id,
@@ -385,6 +394,12 @@ const rejectPayment = async (paymentId, adminId, adminRemarks) => {
   payment.adminRemarks = adminRemarks;
   await payment.save();
 
+  // Update cycle statistics after rejecting payment
+  const cycle = await Cycle.findById(payment.cycle);
+  if (cycle) {
+    await cycle.updatePaymentCounts();
+  }
+
   // Log action
   await AuditLog.logAction({
     groupId: payment.group,
@@ -399,7 +414,7 @@ const rejectPayment = async (paymentId, adminId, adminRemarks) => {
   try {
     const member = await Member.findById(payment.member).populate('user', 'name email');
     const group = await Group.findById(payment.group).select('name');
-    
+
     if (member && member.user) {
       await Notification.createNotification({
         user: member.user._id,

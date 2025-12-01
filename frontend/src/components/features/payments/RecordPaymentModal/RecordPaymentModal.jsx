@@ -79,7 +79,7 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
         console.log('Setting cycles array:', [cycleData]);
         console.log('Cycle _id:', cycleData._id);
         setCycles([cycleData]);
-        
+
         // Auto-select the active cycle after a small delay to ensure cycles are set
         setTimeout(() => {
           console.log('Auto-selecting cycle ID:', activeCycle._id);
@@ -90,10 +90,19 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
           });
         }, 100);
       }
-      
-      // Fetch group details to get organizer UPI
+
+      // Fetch group details to get organizer UPI and monthly contribution
       const groupResponse = await api.get(`/groups/${selectedGroupId}`);
       const group = groupResponse.data?.group;
+      
+      // Auto-fill the amount with group's monthly contribution
+      if (group?.monthlyContribution) {
+        setFormData(prev => ({ 
+          ...prev, 
+          amount: Math.round(group.monthlyContribution).toString() 
+        }));
+      }
+      
       if (group?.organizer) {
         // Fetch organizer's UPI details
         const organizerResponse = await api.get(`/users/${group.organizer._id || group.organizer}`);
@@ -195,27 +204,28 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
       const submitData = new FormData();
       submitData.append('groupId', formData.groupId);
       submitData.append('cycleId', formData.cycleId);
-      
+
       // Log the raw amount value
       console.log('Raw amount from form:', formData.amount, 'Type:', typeof formData.amount);
-      
+
       // Simply use the amount as-is (it's already a string from the input)
-      const amountValue = String(formData.amount).trim();
+      // Ensure we send a clean integer string
+      const amountValue = String(formData.amount).replace(/[^0-9]/g, '');
       console.log('Amount being sent:', amountValue);
       submitData.append('amount', amountValue);
       submitData.append('paymentMode', upiData?.paymentMode || formData.paymentMode);
-      
+
       // Only add transactionId if it has a value
       const transactionId = upiData?.transactionRef || formData.transactionRef;
       if (transactionId && transactionId.trim()) {
         submitData.append('transactionId', transactionId);
       }
-      
+
       // Only add memberRemarks if it has a value
       if (formData.notes && formData.notes.trim()) {
         submitData.append('memberRemarks', formData.notes);
       }
-      
+
       if (formData.paymentProof) {
         submitData.append('paymentProof', formData.paymentProof);
       }
@@ -235,19 +245,19 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
       if (onSuccess) {
         onSuccess(response.data);
       }
-      
+
       onClose();
     } catch (err) {
       console.error('Payment submission error:', err);
       console.error('Error response:', err.response);
       console.error('Error response data:', err.response?.data);
       console.error('Error message:', err.message);
-      
-      const errorMessage = err.response?.data?.message 
-        || err.response?.data?.error 
-        || err.message 
+
+      const errorMessage = err.response?.data?.message
+        || err.response?.data?.error
+        || err.message
         || 'Failed to record payment';
-      
+
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -272,7 +282,7 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
         {showUpiPayment && organizerUpi ? (
           <div className="modal-body">
             <UpiPayment
-              amount={parseFloat(formData.amount)}
+              amount={parseInt(formData.amount, 10)}
               recipientUpi={organizerUpi.upiId}
               recipientName={organizerUpi.name}
               onPaymentInitiated={handleUpiPaymentInitiated}
@@ -287,151 +297,151 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
               </Alert>
             )}
 
-          {!groupId && (
-            <div className="form-group">
-              <label htmlFor="groupId">Select Group *</label>
-              {loadingGroups ? (
-                <Loader size="small" text="Loading groups..." />
-              ) : (
-                <select
-                  id="groupId"
-                  name="groupId"
-                  value={formData.groupId}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">-- Select a group --</option>
-                  {groups.map((group) => (
-                    <option key={group._id} value={group._id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {!cycleId && formData.groupId && (
-            <div className="form-group">
-              <label htmlFor="cycleId">Cycle *</label>
-              {loadingCycles ? (
-                <Loader size="small" text="Loading cycles..." />
-              ) : cycles.length > 0 ? (
-                <select
-                  id="cycleId"
-                  name="cycleId"
-                  value={formData.cycleId}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">-- Select a cycle --</option>
-                  {cycles.map((cycle) => (
-                    <option key={cycle._id} value={cycle._id}>
-                      Cycle {cycle.cycleNumber} ({new Date(cycle.startDate).toLocaleDateString()} - {new Date(cycle.endDate).toLocaleDateString()})
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Alert type="info">No active cycle found for this group</Alert>
-              )}
-            </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="amount">Amount *</label>
-            <input
-              type="number"
-              id="amount"
-              name="amount"
-              value={formData.amount}
-              onChange={handleChange}
-              placeholder="Enter amount"
-              required
-              min="1"
-              step="1"
-            />
-          </div>
-
-          {formData.groupId && formData.cycleId && formData.amount && organizerUpi && (
-            <div className="upi-quick-pay">
-              <Button
-                type="button"
-                variant="primary"
-                onClick={handleUpiPayment}
-                style={{ width: '100%', marginBottom: '16px' }}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '20px', height: '20px', marginRight: '8px' }}>
-                  <rect x="2" y="5" width="20" height="14" rx="2" />
-                  <line x1="2" y1="10" x2="22" y2="10" />
-                </svg>
-                Pay ₹{formData.amount} with UPI
-              </Button>
-              <div style={{ textAlign: 'center', margin: '16px 0', color: '#666', fontSize: '14px' }}>
-                OR enter payment details manually
+            {!groupId && (
+              <div className="form-group">
+                <label htmlFor="groupId">Select Group *</label>
+                {loadingGroups ? (
+                  <Loader size="small" text="Loading groups..." />
+                ) : (
+                  <select
+                    id="groupId"
+                    name="groupId"
+                    value={formData.groupId}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">-- Select a group --</option>
+                    {groups.map((group) => (
+                      <option key={group._id} value={group._id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
-            </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="paymentMode">Payment Mode *</label>
-            <select
-              id="paymentMode"
-              name="paymentMode"
-              value={formData.paymentMode}
-              onChange={handleChange}
-              required
-            >
-              <option value="upi">UPI</option>
-              <option value="bank_transfer">Bank Transfer</option>
-              <option value="cash">Cash</option>
-              <option value="cheque">Cheque</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="transactionRef">Transaction ID / Reference *</label>
-            <input
-              type="text"
-              id="transactionRef"
-              name="transactionRef"
-              value={formData.transactionRef}
-              onChange={handleChange}
-              placeholder="UPI Transaction ID, Bank Ref No., Cheque No., etc."
-              required
-            />
-            <small className="form-hint">Required for verification by admin</small>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="paymentProof">Payment Proof *</label>
-            <input
-              type="file"
-              id="paymentProof"
-              name="paymentProof"
-              onChange={handleFileChange}
-              accept="image/*,.pdf"
-              required={!formData.paymentProof}
-            />
-            <small className="form-hint">Upload screenshot or receipt (Max 5MB) - Required</small>
-            {formData.paymentProof && (
-              <small className="form-hint" style={{ color: '#16a34a' }}>
-                ✓ File selected: {formData.paymentProof.name}
-              </small>
             )}
-          </div>
 
-          <div className="form-group">
-            <label htmlFor="notes">Notes (Optional)</label>
-            <textarea
-              id="notes"
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              placeholder="Add any additional notes..."
-              rows="3"
-            />
-          </div>
+            {!cycleId && formData.groupId && (
+              <div className="form-group">
+                <label htmlFor="cycleId">Cycle *</label>
+                {loadingCycles ? (
+                  <Loader size="small" text="Loading cycles..." />
+                ) : cycles.length > 0 ? (
+                  <select
+                    id="cycleId"
+                    name="cycleId"
+                    value={formData.cycleId}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">-- Select a cycle --</option>
+                    {cycles.map((cycle) => (
+                      <option key={cycle._id} value={cycle._id}>
+                        Cycle {cycle.cycleNumber} ({new Date(cycle.startDate).toLocaleDateString()} - {new Date(cycle.endDate).toLocaleDateString()})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <Alert type="info">No active cycle found for this group</Alert>
+                )}
+              </div>
+            )}
+
+            <div className="form-group">
+              <label htmlFor="amount">Amount *</label>
+              <input
+                type="number"
+                id="amount"
+                name="amount"
+                value={formData.amount}
+                onChange={handleChange}
+                placeholder="Enter amount"
+                required
+                min="1"
+                step="1"
+              />
+            </div>
+
+            {formData.groupId && formData.cycleId && formData.amount && organizerUpi && (
+              <div className="upi-quick-pay">
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleUpiPayment}
+                  style={{ width: '100%', marginBottom: '16px' }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '20px', height: '20px', marginRight: '8px' }}>
+                    <rect x="2" y="5" width="20" height="14" rx="2" />
+                    <line x1="2" y1="10" x2="22" y2="10" />
+                  </svg>
+                  Pay ₹{formData.amount} with UPI
+                </Button>
+                <div style={{ textAlign: 'center', margin: '16px 0', color: '#666', fontSize: '14px' }}>
+                  OR enter payment details manually
+                </div>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label htmlFor="paymentMode">Payment Mode *</label>
+              <select
+                id="paymentMode"
+                name="paymentMode"
+                value={formData.paymentMode}
+                onChange={handleChange}
+                required
+              >
+                <option value="upi">UPI</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="cash">Cash</option>
+                <option value="cheque">Cheque</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="transactionRef">Transaction ID / Reference *</label>
+              <input
+                type="text"
+                id="transactionRef"
+                name="transactionRef"
+                value={formData.transactionRef}
+                onChange={handleChange}
+                placeholder="UPI Transaction ID, Bank Ref No., Cheque No., etc."
+                required
+              />
+              <small className="form-hint">Required for verification by admin</small>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="paymentProof">Payment Proof *</label>
+              <input
+                type="file"
+                id="paymentProof"
+                name="paymentProof"
+                onChange={handleFileChange}
+                accept="image/*,.pdf"
+                required={!formData.paymentProof}
+              />
+              <small className="form-hint">Upload screenshot or receipt (Max 5MB) - Required</small>
+              {formData.paymentProof && (
+                <small className="form-hint" style={{ color: '#16a34a' }}>
+                  ✓ File selected: {formData.paymentProof.name}
+                </small>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="notes">Notes (Optional)</label>
+              <textarea
+                id="notes"
+                name="notes"
+                value={formData.notes}
+                onChange={handleChange}
+                placeholder="Add any additional notes..."
+                rows="3"
+              />
+            </div>
 
             <div className="modal-footer">
               <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>

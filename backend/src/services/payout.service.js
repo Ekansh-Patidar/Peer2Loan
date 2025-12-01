@@ -28,13 +28,9 @@ const initiatePayout = async (payoutData) => {
     throw ApiError.notFound('Cycle not found');
   }
 
-  // Check if cycle is ready for payout
-  if (!cycle.isReadyForPayout) {
-    await cycle.checkPayoutReadiness();
-    if (!cycle.isReadyForPayout) {
-      throw ApiError.badRequest('Cycle is not ready for payout. Not all payments received.');
-    }
-  }
+  // Admin can process payout regardless of payment status
+  // Members who haven't paid will get late fees applied
+  // No validation for isReadyForPayout - admin has full control
 
   // Check if payout already exists
   let payout = await Payout.findOne({ cycle: cycleId });
@@ -43,8 +39,10 @@ const initiatePayout = async (payoutData) => {
     throw ApiError.conflict('Payout has already been initiated for this cycle');
   }
 
-  // Use provided amount or collected amount from cycle (round to handle any floating point from aggregation)
-  const payoutAmount = amount ? parseInt(amount, 10) : Math.round(cycle.collectedAmount);
+  // Use provided amount or collected amount from cycle
+  const cleanAmount = amount ? String(amount).replace(/[^0-9]/g, '') : null;
+  const payoutAmount = cleanAmount ? parseInt(cleanAmount, 10) : Math.round(cycle.collectedAmount);
+  console.log('Payout Service - received:', amount, 'parsed:', payoutAmount);
 
   if (!payout) {
     // Create new payout in pending_approval status
@@ -268,7 +266,9 @@ const executePayout = async (payoutData) => {
   }
 
   // Use provided amount or existing payout amount
-  const finalAmount = amount ? parseInt(amount, 10) : (payout?.amount || 0);
+  const cleanExecAmount = amount ? String(amount).replace(/[^0-9]/g, '') : null;
+  const finalAmount = cleanExecAmount ? parseInt(cleanExecAmount, 10) : (payout?.amount || 0);
+  console.log('Execute Payout - received:', amount, 'parsed:', finalAmount);
 
   if (!payout) {
     // Create new payout directly as completed (legacy flow)
@@ -318,16 +318,16 @@ const executePayout = async (payoutData) => {
     executedBy
   );
 
-  // Update member
+  // Update member - ensure payoutAmount is integer
   const member = await Member.findById(payout.beneficiary._id || payout.beneficiary);
   member.hasReceivedPayout = true;
   member.payoutReceivedAt = new Date();
-  member.payoutAmount = payout.amount;
+  member.payoutAmount = Math.round(payout.amount);
   await member.save();
 
-  // Update group stats and move to next cycle
+  // Update group stats and move to next cycle - use integer math
   const group = await Group.findById(payout.group._id || payout.group);
-  group.stats.totalDisbursed = Math.round(Number(group.stats.totalDisbursed) + Number(payout.amount));
+  group.stats.totalDisbursed = Math.round(group.stats.totalDisbursed) + Math.round(payout.amount);
   group.stats.completedCycles += 1;
   
   if (group.currentCycle < group.duration) {
@@ -342,6 +342,36 @@ const executePayout = async (payoutData) => {
     if (nextCycle) {
       nextCycle.status = CYCLE_STATUS.ACTIVE;
       await nextCycle.save();
+      
+      // Create pending payment records for all members for the next cycle
+      const Payment = require('../models/Payment.model');
+      const members = await Member.find({ group: group._id, status: 'active' });
+      const paymentDueDate = new Date(nextCycle.endDate);
+      
+      for (const member of members) {
+        // Check if payment already exists for this member and cycle
+        const existingPayment = await Payment.findOne({
+          member: member._id,
+          cycle: nextCycle._id,
+        });
+        
+        if (!existingPayment) {
+          await Payment.create({
+            group: group._id,
+            member: member._id,
+            cycle: nextCycle._id,
+            cycleNumber: nextCycle.cycleNumber,
+            amount: Math.round(group.monthlyContribution),
+            currency: group.currency,
+            paymentMode: 'upi',
+            status: 'pending',
+            dueDate: paymentDueDate,
+          });
+        }
+      }
+      
+      // Update the next cycle's payment counts after creating payments
+      await nextCycle.updatePaymentCounts();
     }
   } else {
     // Group completed

@@ -31,7 +31,7 @@ const ProcessPayoutModal = ({ isOpen, onClose, cycle, group, onSuccess }) => {
       await payoutService.initiatePayout({
         cycleId: cycle._id,
         groupId: group?._id || cycle?.groupId,
-        amount: parseFloat(amount),
+        amount: parseInt(String(amount).replace(/[^0-9]/g, ''), 10),
       });
 
       if (onSuccess) {

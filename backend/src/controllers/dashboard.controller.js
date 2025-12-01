@@ -47,13 +47,24 @@ const getGroupDashboard = asyncHandler(async (req, res) => {
       const payment = cyclePayments.find(
         (p) => p.member._id.toString() === member._id.toString()
       );
+      // Determine display status - confirmed/paid should show as "Paid"
+      let displayStatus = PAYMENT_STATUS.PENDING;
+      if (payment) {
+        if (payment.status === 'confirmed' || payment.status === 'paid' || payment.status === 'verified') {
+          displayStatus = 'paid';
+        } else if (payment.status === 'under_review') {
+          displayStatus = 'pending'; // Show as pending until confirmed
+        } else {
+          displayStatus = payment.status;
+        }
+      }
       return {
         memberId: member._id,
         memberName: member.user.name,
         turnNumber: member.turnNumber,
-        status: payment ? payment.status : PAYMENT_STATUS.PENDING,
+        status: displayStatus,
         paidAt: payment ? payment.paidAt : null,
-        amount: payment ? payment.amount : 0,
+        amount: payment ? Math.round(payment.amount) : 0,
       };
     });
   }
@@ -114,8 +125,8 @@ const getGroupDashboard = asyncHandler(async (req, res) => {
       endDate: activeCycle.endDate,
       beneficiary: activeCycle.beneficiary.user.name,
       beneficiaryTurn: activeCycle.beneficiary.turnNumber,
-      collectedAmount: activeCycle.collectedAmount,
-      expectedAmount: activeCycle.expectedAmount,
+      collectedAmount: Math.round(activeCycle.collectedAmount),
+      expectedAmount: Math.round(activeCycle.expectedAmount),
       collectionPercentage: activeCycle.collectionPercentage,
       paidCount: activeCycle.paidCount,
       pendingCount: activeCycle.pendingCount,
@@ -127,9 +138,9 @@ const getGroupDashboard = asyncHandler(async (req, res) => {
     stats: {
       totalMembers: group.memberCount,
       activeMembers: group.stats.activeMembers,
-      totalCollected: group.stats.totalCollected,
-      totalDisbursed: group.stats.totalDisbursed,
-      totalPenalties: group.stats.totalPenalties,
+      totalCollected: Math.round(group.stats.totalCollected),
+      totalDisbursed: Math.round(group.stats.totalDisbursed),
+      totalPenalties: Math.round(group.stats.totalPenalties),
       completedCycles: group.stats.completedCycles,
     },
     upcomingCycles: upcomingCycles.map((c) => ({
@@ -209,9 +220,9 @@ const getMemberDashboard = asyncHandler(async (req, res) => {
       totalCycles: member.group.duration,
     },
     financials: {
-      totalContributed: member.totalContributed,
-      payoutReceived: member.payoutAmount,
-      netPosition,
+      totalContributed: Math.round(member.totalContributed),
+      payoutReceived: Math.round(member.payoutAmount),
+      netPosition: Math.round(netPosition),
       totalPenalties: member.totalPenalties,
       missedPayments: member.missedPayments,
       latePayments: member.latePayments,
@@ -268,16 +279,16 @@ const getOverviewDashboard = asyncHandler(async (req, res) => {
     currentCycle: member.group.currentCycle,
     totalCycles: member.group.duration,
     hasReceivedPayout: member.hasReceivedPayout,
-    totalContributed: member.totalContributed,
-    payoutAmount: member.payoutAmount,
+    totalContributed: Math.round(member.totalContributed),
+    payoutAmount: Math.round(member.payoutAmount),
   }));
 
   // Calculate totals
   const totals = memberRecords.reduce(
     (acc, member) => ({
-      totalContributed: acc.totalContributed + member.totalContributed,
-      totalReceived: acc.totalReceived + member.payoutAmount,
-      totalPenalties: acc.totalPenalties + member.totalPenalties,
+      totalContributed: acc.totalContributed + Math.round(member.totalContributed),
+      totalReceived: acc.totalReceived + Math.round(member.payoutAmount),
+      totalPenalties: acc.totalPenalties + Math.round(member.totalPenalties),
     }),
     { totalContributed: 0, totalReceived: 0, totalPenalties: 0 }
   );

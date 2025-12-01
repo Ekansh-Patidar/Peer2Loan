@@ -12,7 +12,13 @@ const CreateGroup = () => {
   const { createNewGroup } = useGroups();
 
   const handleSubmit = async (formData) => {
-    const result = await createNewGroup(formData);
+    // Ensure monthlyContribution is a clean integer
+    const cleanedData = {
+      ...formData,
+      monthlyContribution: parseInt(String(formData.monthlyContribution).replace(/[^0-9]/g, ''), 10) || 0,
+      memberCount: parseInt(String(formData.memberCount).replace(/[^0-9]/g, ''), 10) || 0,
+    };
+    const result = await createNewGroup(cleanedData);
     if (result.success) {
       // Redirect to the newly created group's details page
       const groupId = result.data.group?._id || result.data._id;

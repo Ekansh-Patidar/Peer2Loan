@@ -5,7 +5,7 @@ const Cycle = require('../models/Cycle.model');
 const AuditLog = require('../models/AuditLog.model');
 const ApiError = require('../utils/apiError');
 const { generateCycleDates } = require('../utils/dateHelper');
-const { GROUP_STATUS, MEMBER_STATUS, CYCLE_STATUS, AUDIT_ACTIONS } = require('../config/constants');
+const { GROUP_STATUS, MEMBER_STATUS, CYCLE_STATUS, AUDIT_ACTIONS, PAYMENT_STATUS } = require('../config/constants');
 
 /**
  * Create new group
@@ -24,15 +24,23 @@ const createGroup = async (organizerId, groupData) => {
     settings,
   } = groupData;
 
+  // Parse monthlyContribution as integer to avoid floating point issues
+  // Parse all numeric values as integers to avoid floating point issues
+  const cleanContribution = String(monthlyContribution).replace(/[^0-9]/g, '');
+  const parsedContribution = parseInt(cleanContribution, 10) || 0;
+  
+  const cleanMemberCount = String(memberCount).replace(/[^0-9]/g, '');
+  const parsedMemberCount = parseInt(cleanMemberCount, 10) || 0;
+
   // Create group
   const group = await Group.create({
     name,
     description,
     organizer: organizerId,
-    monthlyContribution,
+    monthlyContribution: parsedContribution,
     currency,
-    memberCount,
-    duration: memberCount, // Duration equals member count
+    memberCount: parsedMemberCount,
+    duration: parsedMemberCount, // Duration equals member count
     startDate: new Date(startDate),
     paymentWindow,
     turnOrderType,
@@ -144,14 +152,30 @@ const updateGroup = async (groupId, updateData) => {
   const allowedUpdates = [
     'name',
     'description',
+    'monthlyContribution',
+    'memberCount',
+    'startDate',
     'paymentWindow',
+    'turnOrderType',
     'penaltyRules',
     'settings',
   ];
 
   allowedUpdates.forEach((field) => {
     if (updateData[field] !== undefined) {
-      group[field] = updateData[field];
+      // Parse numeric fields as integers
+      if (field === 'monthlyContribution' || field === 'memberCount') {
+        const cleanValue = String(updateData[field]).replace(/[^0-9]/g, '');
+        group[field] = parseInt(cleanValue, 10) || group[field];
+        // Also update duration if memberCount changes
+        if (field === 'memberCount') {
+          group.duration = group[field];
+        }
+      } else if (field === 'startDate') {
+        group[field] = new Date(updateData[field]);
+      } else {
+        group[field] = updateData[field];
+      }
     }
   });
 
@@ -181,7 +205,7 @@ const activateGroup = async (groupId) => {
   }).sort({ turnNumber: 1 });
 
   const requiredMemberCount = group.memberCount || members.length;
-  
+
   if (members.length < 2) {
     throw ApiError.badRequest(
       `Cannot activate group. At least 2 active members required. Currently ${members.length} member(s).`
@@ -239,27 +263,29 @@ const activateGroup = async (groupId) => {
       endDate: cycleData.endDate,
       beneficiary: turnAssignment.memberId,
       turnNumber: cycleData.cycleNumber,
-      expectedAmount: group.monthlyContribution * group.memberCount,
+      expectedAmount: Math.round(group.monthlyContribution * group.memberCount),
       totalMembers: group.memberCount,
       status: cycleData.cycleNumber === 1 ? CYCLE_STATUS.ACTIVE : CYCLE_STATUS.PENDING,
     });
 
-    // Create pending payment records for all members for this cycle
-    const Payment = require('../models/Payment.model');
-    const paymentDueDate = new Date(cycleData.endDate);
-    
-    for (const member of members) {
-      await Payment.create({
-        group: groupId,
-        member: member._id,
-        cycle: cycle._id,
-        cycleNumber: cycleData.cycleNumber,
-        amount: group.monthlyContribution,
-        currency: group.currency,
-        paymentMode: 'upi', // Default, can be changed when recording
-        status: PAYMENT_STATUS.PENDING,
-        dueDate: paymentDueDate,
-      });
+    // Create pending payment records ONLY for the first (active) cycle
+    if (cycleData.cycleNumber === 1) {
+      const Payment = require('../models/Payment.model');
+      const paymentDueDate = new Date(cycleData.endDate);
+
+      for (const member of members) {
+        await Payment.create({
+          group: groupId,
+          member: member._id,
+          cycle: cycle._id,
+          cycleNumber: cycleData.cycleNumber,
+          amount: Math.round(group.monthlyContribution),
+          currency: group.currency,
+          paymentMode: 'upi', // Default, can be changed when recording
+          status: PAYMENT_STATUS.PENDING,
+          dueDate: paymentDueDate,
+        });
+      }
     }
   }
 
@@ -317,7 +343,7 @@ const inviteMember = async (groupId, email, turnNumber) => {
     // Find the next available turn number
     const existingMembers = await Member.find({ group: groupId }).sort({ turnNumber: 1 });
     const usedTurnNumbers = existingMembers.map(m => m.turnNumber);
-    
+
     // Find the first available turn number from 1 to memberCount
     for (let i = 1; i <= group.memberCount; i++) {
       if (!usedTurnNumbers.includes(i)) {
@@ -325,7 +351,7 @@ const inviteMember = async (groupId, email, turnNumber) => {
         break;
       }
     }
-    
+
     if (!assignedTurnNumber) {
       throw ApiError.badRequest('No available turn numbers');
     }

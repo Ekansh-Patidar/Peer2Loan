@@ -152,10 +152,10 @@ const getMemberStats = asyncHandler(async (req, res) => {
     {
       stats: {
         ...stats,
-        totalContributed: member.totalContributed,
-        totalPenalties: member.totalPenalties,
-        payoutReceived: member.payoutAmount,
-        netPosition: member.payoutAmount - member.totalContributed,
+        totalContributed: Math.round(member.totalContributed),
+        totalPenalties: Math.round(member.totalPenalties),
+        payoutReceived: Math.round(member.payoutAmount),
+        netPosition: Math.round(member.payoutAmount - member.totalContributed),
         performanceScore: member.performanceScore,
         paymentStreak: member.paymentStreak,
         missedPayments: member.missedPayments,

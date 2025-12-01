@@ -49,7 +49,7 @@ const PaymentForm = ({ groupId, cycleId, onSubmit, onCancel, loading }) => {
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      
+
       // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
         setErrors(prev => ({
@@ -81,12 +81,12 @@ const PaymentForm = ({ groupId, cycleId, onSubmit, onCancel, loading }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     if (!validate()) return;
 
     // Create FormData for file upload
     const paymentData = new FormData();
-    
+
     // Append all form fields
     Object.keys(formData).forEach(key => {
       paymentData.append(key, formData[key]);
@@ -121,7 +121,17 @@ const PaymentForm = ({ groupId, cycleId, onSubmit, onCancel, loading }) => {
             helperText={errors.amount}
             required
             InputProps={{
-              startAdornment: <Typography sx={{ mr: 1 }}>₹</Typography>
+              startAdornment: <Typography sx={{ mr: 1 }}>₹</Typography>,
+              inputProps: {
+                min: 1,
+                step: 1,
+                onKeyDown: (event) => {
+                  // Prevent decimal point and other non-integer characters
+                  if (event.key === '.' || event.key === 'e' || event.key === 'E' || event.key === '-' || event.key === '+') {
+                    event.preventDefault();
+                  }
+                }
+              }
             }}
           />
         </Grid>
@@ -188,11 +198,11 @@ const PaymentForm = ({ groupId, cycleId, onSubmit, onCancel, loading }) => {
       </Typography>
       <Divider sx={{ mb: 3 }} />
 
-      <Paper 
-        variant="outlined" 
-        sx={{ 
-          p: 3, 
-          mb: 3, 
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 3,
+          mb: 3,
           textAlign: 'center',
           backgroundColor: 'rgba(0, 0, 0, 0.02)',
           cursor: 'pointer',

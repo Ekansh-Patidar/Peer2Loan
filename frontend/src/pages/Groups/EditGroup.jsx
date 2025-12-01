@@ -18,7 +18,13 @@ const EditGroup = () => {
   }, [id, selectGroup]);
 
   const handleUpdate = async (formData) => {
-    const result = await updateExistingGroup(id, formData);
+    // Ensure numeric values are clean integers
+    const cleanedData = {
+      ...formData,
+      monthlyContribution: parseInt(String(formData.monthlyContribution).replace(/[^0-9]/g, ''), 10) || 0,
+      memberCount: parseInt(String(formData.memberCount).replace(/[^0-9]/g, ''), 10) || 0,
+    };
+    const result = await updateExistingGroup(id, cleanedData);
     if (result.success) {
       navigate(`/groups/${id}`);
     } else {

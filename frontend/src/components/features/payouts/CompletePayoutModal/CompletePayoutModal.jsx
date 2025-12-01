@@ -64,7 +64,7 @@ const CompletePayoutModal = ({ isOpen, onClose, payout, onSuccess }) => {
       submitData.append('payoutId', payout._id);
       submitData.append('groupId', payout.group?._id || payout.group);
       submitData.append('cycleId', payout.cycle?._id || payout.cycle);
-      submitData.append('amount', payout.amount);
+      submitData.append('amount', parseInt(String(payout.amount).replace(/[^0-9]/g, ''), 10));
       submitData.append('transferMode', formData.transferMode);
       submitData.append('transactionId', formData.transactionId);
       

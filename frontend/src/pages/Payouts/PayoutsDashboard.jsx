@@ -88,12 +88,27 @@ const PayoutsDashboard = () => {
             );
             const hasActivePayout = existingPayout && existingPayout.status !== 'scheduled';
             
-            // Only show if ready for payout AND no active payout exists
-            if (activeCycle && activeCycle.isReadyForPayout && !activeCycle.isPayoutCompleted && !hasActivePayout) {
+            // Show ALL active cycles for payout processing
+            // Admin can process payout regardless of payment status
+            // Members who haven't paid will get late fees applied
+            if (activeCycle && !activeCycle.isPayoutCompleted && !hasActivePayout) {
+              // Calculate total members from the cycle data
+              const paidCount = activeCycle.paidCount || 0;
+              const pendingCount = activeCycle.pendingCount || 0;
+              const lateCount = activeCycle.lateCount || 0;
+              const totalMembers = paidCount + pendingCount + lateCount;
+              
+              // Only consider "All Paid" if there are members and all have paid
+              const isFullyPaid = totalMembers > 0 && paidCount >= totalMembers;
+              
               readyCycles.push({
                 ...activeCycle,
                 groupName: group.name,
                 groupId: group._id,
+                isFullyPaid: isFullyPaid,
+                totalMembers: totalMembers || group.memberCount,
+                paidCount: paidCount,
+                pendingCount: pendingCount,
               });
             }
           }
@@ -435,9 +450,9 @@ const PayoutsDashboard = () => {
           </Card>
         )}
 
-        {/* Cycles Ready for Payout (Admin only) */}
+        {/* Active Cycles for Payout (Admin only) */}
         {cyclesReadyForPayout.length > 0 && organizerGroupIds.length > 0 && (
-          <Card title="Cycles Ready for Payout" subtitle="Click 'Process Payout' to initiate the approval workflow">
+          <Card title="Active Cycles - Process Payout" subtitle="Process payout for active cycles. Members who haven't paid will receive late fees.">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
               {cyclesReadyForPayout.map((cycle) => (
                 <div key={cycle._id} className="payment-card">
@@ -446,7 +461,16 @@ const PayoutsDashboard = () => {
                       <div className="payment-card-group">{cycle.groupName}</div>
                       <div className="payment-card-cycle">Cycle {cycle.cycleNumber}</div>
                     </div>
-                    <span style={{ padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: '600', background: '#d1fae5', color: '#065f46' }}>Ready</span>
+                    <span style={{ 
+                      padding: '4px 12px', 
+                      borderRadius: '12px', 
+                      fontSize: '12px', 
+                      fontWeight: '600', 
+                      background: cycle.isFullyPaid ? '#d1fae5' : '#e0e7ff', 
+                      color: cycle.isFullyPaid ? '#065f46' : '#3730a3' 
+                    }}>
+                      {cycle.isFullyPaid ? 'All Paid' : 'Active'}
+                    </span>
                   </div>
                   <div className="payment-card-body">
                     <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>
@@ -454,7 +478,7 @@ const PayoutsDashboard = () => {
                     </div>
                     <div className="payment-card-amount">₹{cycle.collectedAmount?.toLocaleString()}</div>
                     <div style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
-                      {cycle.paidCount}/{cycle.paidCount + cycle.pendingCount} members paid
+                      {cycle.paidCount || 0}/{cycle.totalMembers || (cycle.paidCount + cycle.pendingCount)} members paid
                     </div>
                   </div>
                   <div className="payment-card-footer">

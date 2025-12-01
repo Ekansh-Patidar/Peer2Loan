@@ -193,10 +193,15 @@ cycleSchema.methods.updatePaymentCounts = async function() {
     switch (item._id) {
       case 'paid':
       case 'confirmed':
+      case 'verified':
+        // These are fully paid and confirmed
         this.paidCount += item.count;
         this.collectedAmount += Math.round(Number(item.amount));
         break;
       case 'pending':
+      case 'under_review':
+      case 'rejected':
+        // These are still pending (not yet confirmed)
         this.pendingCount += item.count;
         break;
       case 'late':

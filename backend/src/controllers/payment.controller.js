@@ -8,8 +8,18 @@ const asyncHandler = require('../utils/asyncHandler');
  * @access  Private
  */
 const recordPayment = asyncHandler(async (req, res) => {
+  console.log('Payment Controller - Received body:', JSON.stringify(req.body, null, 2));
+
+  // Strict integer parsing for amount
+  let parsedAmount = req.body.amount;
+  if (parsedAmount) {
+    parsedAmount = parseInt(String(parsedAmount).replace(/[^0-9]/g, ''), 10);
+    console.log(`Payment Controller - Parsed amount: ${req.body.amount} -> ${parsedAmount}`);
+  }
+
   const paymentData = {
     ...req.body,
+    amount: parsedAmount, // Use the strictly parsed amount
     memberId: req.member._id,
     userId: req.user._id,
   };
