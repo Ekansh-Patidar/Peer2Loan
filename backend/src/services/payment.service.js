@@ -333,6 +333,39 @@ const confirmPayment = async (paymentId, adminId, adminRemarks) => {
   payment.adminRemarks = adminRemarks;
   await payment.save();
 
+  // Mark all penalties associated with this payment as paid
+  const Penalty = require('../models/Penalty.model');
+
+  // First, mark penalties directly linked to this payment
+  const directPenalties = await Penalty.find({
+    payment: paymentId,
+    isPaid: false,
+    isWaived: false
+  });
+
+  for (const penalty of directPenalties) {
+    await penalty.markAsPaid();
+  }
+
+  // For confirmed payments, also mark ALL unpaid penalties for this member as paid
+  // This handles penalties from previous cycles that were included in the payment amount
+  // Get the payment to access member ID
+  const paymentForMember = await Payment.findById(paymentId);
+  if (paymentForMember) {
+    const allMemberPenalties = await Penalty.find({
+      member: paymentForMember.member,
+      group: paymentForMember.group,
+      isPaid: false,
+      isWaived: false
+    });
+
+    for (const penalty of allMemberPenalties) {
+      await penalty.markAsPaid();
+    }
+
+    console.log(`Marked ${allMemberPenalties.length} penalties as paid for member ${paymentForMember.member}`);
+  }
+
   // Update cycle statistics after confirming payment
   const cycle = await Cycle.findById(payment.cycle);
   if (cycle) {

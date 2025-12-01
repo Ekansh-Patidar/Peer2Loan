@@ -25,7 +25,7 @@ const GroupCard = ({ group, onSelect, onEdit, onDelete }) => {
       <div className="group-card-body">
         <div className="info-row">
           <span className="label">Members:</span>
-          <span className="value">{group.memberCount}/{group.groupSize}</span>
+          <span className="value">{group.memberCount}</span>
         </div>
         <div className="info-row">
           <span className="label">Contribution:</span>
@@ -33,7 +33,7 @@ const GroupCard = ({ group, onSelect, onEdit, onDelete }) => {
         </div>
         <div className="info-row">
           <span className="label">Cycle:</span>
-          <span className="value">{group.currentCycle}/{group.totalCycles}</span>
+          <span className="value">{group.currentCycle}</span>
         </div>
       </div>
 

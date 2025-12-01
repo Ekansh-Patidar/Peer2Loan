@@ -138,6 +138,7 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+
   .groups-dashboard-container,
   .payments-dashboard-container {
     padding: 16px;

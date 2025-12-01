@@ -5,6 +5,7 @@ import { Card, Button, Alert, Loader } from '../../components/common';
 import useAuth from '../../hooks/useAuth';
 import { useGroups } from '../../hooks/useGroups';
 import '../Groups/Groups.css';
+import './Reports.css';
 
 /**
  * ReportsDashboard - Reports hub page
@@ -125,30 +126,24 @@ const ReportsDashboard = () => {
 
         {groups && groups.length > 0 && (
           <Card>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+            <div className="reports-group-select-container">
+              <label className="reports-group-select-label">
                 Select a Group
               </label>
-              <select
-                value={selectedGroup || ''}
-                onChange={(e) => setSelectedGroup(e.target.value)}
-                style={{
-                  width: '100%',
-                  maxWidth: '400px',
-                  padding: '10px 12px',
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  backgroundColor: 'white'
-                }}
-              >
-                <option value="">-- Select a group --</option>
-                {groups.map(group => (
-                  <option key={group._id} value={group._id}>
-                    {group.name} ({group.status})
-                  </option>
-                ))}
-              </select>
+              <div className="reports-group-select-wrapper">
+                <select
+                  className="reports-group-select"
+                  value={selectedGroup || ''}
+                  onChange={(e) => setSelectedGroup(e.target.value)}
+                >
+                  <option value="">-- Select a group --</option>
+                  {groups.map(group => (
+                    <option key={group._id} value={group._id}>
+                      {group.name} ({group.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </Card>
         )}
