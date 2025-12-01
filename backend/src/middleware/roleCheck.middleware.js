@@ -8,7 +8,16 @@ const { GROUP_ROLES } = require('../config/constants');
  * Check if user is group organizer
  */
 const isGroupOrganizer = asyncHandler(async (req, res, next) => {
-  const groupId = req.params.groupId || req.body.groupId;
+  let groupId = req.params.groupId || req.body.groupId;
+
+  // If no groupId but we have paymentId, get groupId from payment
+  if (!groupId && req.params.paymentId) {
+    const Payment = require('../models/Payment.model');
+    const payment = await Payment.findById(req.params.paymentId);
+    if (payment) {
+      groupId = payment.group.toString();
+    }
+  }
 
   if (!groupId) {
     throw ApiError.badRequest('Group ID is required');

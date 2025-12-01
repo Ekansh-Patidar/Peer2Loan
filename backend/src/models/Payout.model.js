@@ -112,6 +112,30 @@ const payoutSchema = new mongoose.Schema({
   beneficiaryRemarks: {
     type: String,
     maxlength: [500, 'Remarks cannot exceed 500 characters']
+  },
+  
+  // Approval workflow
+  initiatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  initiatedAt: {
+    type: Date,
+    default: null
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  approvedAt: {
+    type: Date,
+    default: null
+  },
+  approvalRemarks: {
+    type: String,
+    maxlength: [500, 'Approval remarks cannot exceed 500 characters']
   }
 }, {
   timestamps: true
@@ -123,6 +147,25 @@ payoutSchema.index({ cycle: 1 }, { unique: true });
 payoutSchema.index({ beneficiary: 1 });
 payoutSchema.index({ status: 1 });
 payoutSchema.index({ scheduledDate: 1 });
+
+// Method to initiate payout (admin starts the process)
+payoutSchema.methods.initiatePayout = function(userId) {
+  this.status = PAYOUT_STATUS.PENDING_APPROVAL;
+  this.initiatedBy = userId;
+  this.initiatedAt = new Date();
+  return this.save();
+};
+
+// Method to approve payout (beneficiary approves)
+payoutSchema.methods.approvePayout = function(userId, remarks) {
+  this.status = PAYOUT_STATUS.APPROVED;
+  this.approvedBy = userId;
+  this.approvedAt = new Date();
+  if (remarks) {
+    this.approvalRemarks = remarks;
+  }
+  return this.save();
+};
 
 // Method to mark as processing
 payoutSchema.methods.startProcessing = function(userId) {

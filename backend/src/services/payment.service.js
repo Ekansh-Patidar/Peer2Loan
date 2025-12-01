@@ -3,6 +3,8 @@ const Cycle = require('../models/Cycle.model');
 const Member = require('../models/Member.model');
 const Group = require('../models/Group.model');
 const AuditLog = require('../models/AuditLog.model');
+const Notification = require('../models/Notification.model');
+const { NOTIFICATION_TYPES } = require('../models/Notification.model');
 const ApiError = require('../utils/apiError');
 const { calculateGracePeriodEnd, isPaymentLate } = require('../utils/dateHelper');
 const { PAYMENT_STATUS, AUDIT_ACTIONS } = require('../config/constants');
@@ -61,16 +63,20 @@ const recordPayment = async (paymentData) => {
   );
   const isLate = paymentDate > gracePeriodEnd;
 
+  // Use the amount directly - it should be a whole number from the form
+  const parsedAmount = Number(amount);
+  console.log('Recording payment - received amount:', amount, 'parsed:', parsedAmount);
+
   // Update existing pending payment or create new one
   let payment;
   if (existingPayment) {
     // Update the existing pending payment
-    existingPayment.amount = amount;
+    existingPayment.amount = parsedAmount;
     existingPayment.paymentMode = paymentMode;
     existingPayment.transactionId = transactionId;
     existingPayment.referenceNumber = referenceNumber;
     existingPayment.paidAt = paymentDate;
-    existingPayment.status = proofDocument ? PAYMENT_STATUS.UNDER_REVIEW : PAYMENT_STATUS.PAID;
+    existingPayment.status = PAYMENT_STATUS.UNDER_REVIEW; // Always require admin approval
     existingPayment.isLate = isLate;
     existingPayment.memberRemarks = memberRemarks;
     existingPayment.proofDocument = proofDocument;
@@ -82,13 +88,13 @@ const recordPayment = async (paymentData) => {
       member: memberId,
       cycle: cycleId,
       cycleNumber: cycle.cycleNumber,
-      amount,
+      amount: parsedAmount,
       paymentMode,
       transactionId,
       referenceNumber,
       dueDate,
       paidAt: paymentDate,
-      status: proofDocument ? PAYMENT_STATUS.UNDER_REVIEW : PAYMENT_STATUS.PAID,
+      status: PAYMENT_STATUS.UNDER_REVIEW, // Always require admin approval
       isLate,
       memberRemarks,
       proofDocument,
@@ -102,7 +108,7 @@ const recordPayment = async (paymentData) => {
 
   // Update member statistics
   const member = await Member.findById(memberId);
-  member.totalContributed += amount;
+  member.totalContributed = Math.round(Number(member.totalContributed) + Number(amount));
   
   if (isLate) {
     member.latePayments += 1;
@@ -121,9 +127,9 @@ const recordPayment = async (paymentData) => {
   await cycle.checkPayoutReadiness(100);
 
   // Update group statistics
-  await Group.findByIdAndUpdate(groupId, {
-    $inc: { 'stats.totalCollected': amount },
-  });
+  const group = await Group.findById(groupId);
+  group.stats.totalCollected = Math.round(Number(group.stats.totalCollected) + Number(amount));
+  await group.save();
 
   // Log action
   await AuditLog.logAction({
@@ -135,6 +141,31 @@ const recordPayment = async (paymentData) => {
     paymentId: payment._id,
     cycleId,
   });
+
+  // Send notification to admin/organizer for approval
+  try {
+    const group = await Group.findById(groupId).populate('organizer', 'name email');
+    const member = await Member.findById(memberId).populate('user', 'name');
+    
+    if (group && group.organizer) {
+      await Notification.createNotification({
+        user: group.organizer._id,
+        type: NOTIFICATION_TYPES.PAYMENT_PENDING_APPROVAL,
+        title: 'Payment Pending Approval',
+        message: `${member.user.name} has submitted a payment of ₹${amount.toLocaleString()} for ${group.name} - Cycle ${cycle.cycleNumber}. Please review and approve.`,
+        group: groupId,
+        payment: payment._id,
+        actionUrl: '/payments',
+        metadata: {
+          cycleNumber: cycle.cycleNumber,
+          amount,
+          memberName: member.user.name
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Failed to send payment approval notification:', err);
+  }
 
   return payment.populate('member', 'user turnNumber');
 };
@@ -187,10 +218,11 @@ const getUserPayments = async (userId, options = {}) => {
 
   const [payments, total] = await Promise.all([
     Payment.find({ member: { $in: memberIds } })
-      .populate('member', 'turnNumber')
+      .populate('group', 'name')
       .populate({
         path: 'member',
-        populate: { path: 'group', select: 'name' }
+        select: 'turnNumber user',
+        populate: { path: 'user', select: 'name email' }
       })
       .populate('cycle', 'cycleNumber startDate endDate')
       .sort({ createdAt: -1 })
@@ -308,6 +340,85 @@ const confirmPayment = async (paymentId, adminId, adminRemarks) => {
     paymentId: payment._id,
   });
 
+  // Send notification to member that payment was confirmed
+  try {
+    const member = await Member.findById(payment.member).populate('user', 'name email');
+    const group = await Group.findById(payment.group).select('name');
+    
+    if (member && member.user) {
+      await Notification.createNotification({
+        user: member.user._id,
+        type: NOTIFICATION_TYPES.PAYMENT_CONFIRMED,
+        title: 'Payment Confirmed',
+        message: `Your payment of ₹${payment.amount.toLocaleString()} for ${group.name} - Cycle ${payment.cycleNumber} has been confirmed by the admin.`,
+        group: payment.group,
+        payment: payment._id,
+        actionUrl: '/payments',
+        metadata: {
+          cycleNumber: payment.cycleNumber,
+          amount: payment.amount
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Failed to send payment confirmed notification:', err);
+  }
+
+  return payment;
+};
+
+/**
+ * Reject payment (admin action)
+ */
+const rejectPayment = async (paymentId, adminId, adminRemarks) => {
+  const payment = await Payment.findById(paymentId);
+
+  if (!payment) {
+    throw ApiError.notFound('Payment not found');
+  }
+
+  if (payment.status === PAYMENT_STATUS.REJECTED) {
+    throw ApiError.badRequest('Payment is already rejected');
+  }
+
+  payment.status = PAYMENT_STATUS.REJECTED;
+  payment.adminRemarks = adminRemarks;
+  await payment.save();
+
+  // Log action
+  await AuditLog.logAction({
+    groupId: payment.group,
+    action: AUDIT_ACTIONS.PAYMENT_CONFIRMED, // Using same action for now
+    description: `Payment rejected for cycle ${payment.cycleNumber}`,
+    userId: adminId,
+    memberId: payment.member,
+    paymentId: payment._id,
+  });
+
+  // Send notification to member that payment was rejected
+  try {
+    const member = await Member.findById(payment.member).populate('user', 'name email');
+    const group = await Group.findById(payment.group).select('name');
+    
+    if (member && member.user) {
+      await Notification.createNotification({
+        user: member.user._id,
+        type: NOTIFICATION_TYPES.PAYMENT_CONFIRMED, // Using same type for now
+        title: 'Payment Rejected',
+        message: `Your payment of ₹${payment.amount.toLocaleString()} for ${group.name} - Cycle ${payment.cycleNumber} has been rejected. Reason: ${adminRemarks || 'No reason provided'}`,
+        group: payment.group,
+        payment: payment._id,
+        actionUrl: '/payments',
+        metadata: {
+          cycleNumber: payment.cycleNumber,
+          amount: payment.amount
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Failed to send payment rejected notification:', err);
+  }
+
   return payment;
 };
 
@@ -346,5 +457,6 @@ module.exports = {
   getMemberPayments,
   getGroupPayments,
   confirmPayment,
+  rejectPayment,
   markPaymentLate,
 };

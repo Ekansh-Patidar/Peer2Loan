@@ -141,6 +141,25 @@ const confirmPayment = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @desc    Reject payment
+ * @route   PUT /api/v1/payments/:paymentId/reject
+ * @access  Private (Organizer only)
+ */
+const rejectPayment = asyncHandler(async (req, res) => {
+  const payment = await paymentService.rejectPayment(
+    req.params.paymentId,
+    req.user._id,
+    req.body.adminRemarks
+  );
+
+  return ApiResponse.success(
+    res,
+    { payment },
+    'Payment rejected'
+  );
+});
+
+/**
  * @desc    Mark payment as late
  * @route   PUT /api/v1/payments/:paymentId/mark-late
  * @access  Private (Organizer only)
@@ -166,5 +185,6 @@ module.exports = {
   getMemberPayments,
   getGroupPayments,
   confirmPayment,
+  rejectPayment,
   markPaymentLate,
 };

@@ -42,7 +42,7 @@ const PaymentDetails = () => {
   }, [paymentId, fetchPaymentById]);
 
   const isAdmin = currentPayment?.group?.organizer === user?._id;
-  const canConfirm = isAdmin && currentPayment?.status === 'pending';
+  const canConfirm = isAdmin && (currentPayment?.status === 'pending' || currentPayment?.status === 'under_review');
 
   const handleConfirm = async () => {
     setConfirmLoading(true);
@@ -96,9 +96,12 @@ const PaymentDetails = () => {
   const getStatusColor = (status) => {
     const colors = {
       pending: 'warning',
+      under_review: 'warning',
+      verified: 'info',
       confirmed: 'success',
       rejected: 'error',
-      late: 'error'
+      late: 'error',
+      defaulted: 'error'
     };
     return colors[status] || 'default';
   };

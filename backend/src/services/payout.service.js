@@ -2,30 +2,26 @@ const Payout = require('../models/Payout.model');
 const Cycle = require('../models/Cycle.model');
 const Member = require('../models/Member.model');
 const Group = require('../models/Group.model');
+const User = require('../models/User.model');
 const AuditLog = require('../models/AuditLog.model');
+const Notification = require('../models/Notification.model');
+const { NOTIFICATION_TYPES } = require('../models/Notification.model');
 const ApiError = require('../utils/apiError');
 const { PAYOUT_STATUS, CYCLE_STATUS, AUDIT_ACTIONS } = require('../config/constants');
+const notificationService = require('./notification.service');
 
 /**
- * Execute payout
+ * Initiate payout (Admin starts the process - sends to pending_approval)
  */
-const executePayout = async (payoutData) => {
-  const {
-    cycleId,
-    amount,
-    transferMode,
-    transferReference,
-    transactionId,
-    scheduledDate,
-    recipientAccount,
-    processorRemarks,
-    proofDocument,
-    executedBy,
-  } = payoutData;
+const initiatePayout = async (payoutData) => {
+  const { cycleId, amount, executedBy } = payoutData;
 
   // Get cycle with beneficiary and group details
   const cycle = await Cycle.findById(cycleId)
-    .populate('beneficiary')
+    .populate({
+      path: 'beneficiary',
+      populate: { path: 'user', select: 'name email phone' }
+    })
     .populate('group');
 
   if (!cycle) {
@@ -41,34 +37,281 @@ const executePayout = async (payoutData) => {
   }
 
   // Check if payout already exists
-  const existingPayout = await Payout.findOne({ cycle: cycleId });
-  if (existingPayout) {
-    throw ApiError.conflict('Payout already exists for this cycle');
+  let payout = await Payout.findOne({ cycle: cycleId });
+  
+  if (payout && payout.status !== PAYOUT_STATUS.SCHEDULED) {
+    throw ApiError.conflict('Payout has already been initiated for this cycle');
   }
 
-  // Create payout
-  const payout = await Payout.create({
-    group: cycle.group._id,
-    cycle: cycleId,
-    beneficiary: cycle.beneficiary._id,
+  // Use provided amount or collected amount from cycle (round to handle any floating point from aggregation)
+  const payoutAmount = amount ? parseInt(amount, 10) : Math.round(cycle.collectedAmount);
+
+  if (!payout) {
+    // Create new payout in pending_approval status
+    payout = await Payout.create({
+      group: cycle.group._id,
+      cycle: cycleId,
+      beneficiary: cycle.beneficiary._id,
+      amount: payoutAmount,
+      scheduledDate: new Date(),
+      status: PAYOUT_STATUS.PENDING_APPROVAL,
+      initiatedBy: executedBy,
+      initiatedAt: new Date(),
+    });
+  } else {
+    // Update existing scheduled payout
+    payout.status = PAYOUT_STATUS.PENDING_APPROVAL;
+    payout.amount = payoutAmount;
+    payout.initiatedBy = executedBy;
+    payout.initiatedAt = new Date();
+    await payout.save();
+  }
+
+  // Log action
+  await AuditLog.logAction({
+    groupId: cycle.group._id,
+    action: AUDIT_ACTIONS.PAYOUT_INITIATED,
+    description: `Payout of ₹${payout.amount} initiated for cycle ${cycle.cycleNumber}`,
+    userId: executedBy,
+    memberId: cycle.beneficiary._id,
+    cycleId,
+  });
+
+  // Send notification to beneficiary (email + in-app)
+  try {
+    const beneficiaryUser = cycle.beneficiary.user;
+    if (beneficiaryUser) {
+      // Create in-app notification
+      await Notification.createNotification({
+        user: beneficiaryUser._id,
+        type: NOTIFICATION_TYPES.PAYOUT_PENDING_APPROVAL,
+        title: 'Payout Ready for Approval',
+        message: `Your payout of ₹${payout.amount.toLocaleString()} from ${cycle.group.name} is ready. Please review and approve.`,
+        group: cycle.group._id,
+        payout: payout._id,
+        actionUrl: '/payouts',
+        metadata: {
+          cycleNumber: cycle.cycleNumber,
+          amount: payout.amount
+        }
+      });
+
+      // Send email notification
+      if (beneficiaryUser.email) {
+        await notificationService.sendPayoutPendingApproval(
+          beneficiaryUser,
+          cycle.group,
+          payout,
+          cycle
+        );
+      }
+    }
+  } catch (err) {
+    console.error('Failed to send payout pending approval notification:', err);
+  }
+
+  return payout.populate([
+    { path: 'beneficiary', populate: { path: 'user', select: 'name email phone' } },
+    { path: 'group', select: 'name' },
+    { path: 'cycle', select: 'cycleNumber' }
+  ]);
+};
+
+/**
+ * Approve payout (Beneficiary approves)
+ */
+const approvePayout = async (payoutId, userId, remarks) => {
+  const payout = await Payout.findById(payoutId)
+    .populate({
+      path: 'beneficiary',
+      populate: { path: 'user', select: 'name email phone' }
+    })
+    .populate('group')
+    .populate('cycle');
+
+  if (!payout) {
+    throw ApiError.notFound('Payout not found');
+  }
+
+  if (payout.status !== PAYOUT_STATUS.PENDING_APPROVAL) {
+    throw ApiError.badRequest('Payout is not in pending approval status');
+  }
+
+  // Verify the user is the beneficiary
+  const member = await Member.findOne({ user: userId, group: payout.group._id });
+  if (!member || member._id.toString() !== payout.beneficiary._id.toString()) {
+    throw ApiError.forbidden('Only the beneficiary can approve this payout');
+  }
+
+  // Approve the payout
+  payout.status = PAYOUT_STATUS.APPROVED;
+  payout.approvedBy = userId;
+  payout.approvedAt = new Date();
+  if (remarks) {
+    payout.approvalRemarks = remarks;
+  }
+  await payout.save();
+
+  // Log action
+  await AuditLog.logAction({
+    groupId: payout.group._id,
+    action: AUDIT_ACTIONS.PAYOUT_APPROVED,
+    description: `Payout of ₹${payout.amount} approved by beneficiary for cycle ${payout.cycle.cycleNumber}`,
+    userId,
+    memberId: payout.beneficiary._id,
+    cycleId: payout.cycle._id,
+  });
+
+  // Notify admin that beneficiary has approved (email + in-app)
+  try {
+    const group = await Group.findById(payout.group._id).populate('organizer');
+    if (group && group.organizer) {
+      // Create in-app notification for admin
+      await Notification.createNotification({
+        user: group.organizer._id,
+        type: NOTIFICATION_TYPES.PAYOUT_APPROVED,
+        title: 'Payout Approved',
+        message: `${payout.beneficiary.user.name} has approved their payout of ₹${payout.amount.toLocaleString()} from ${group.name}. Please complete the transfer.`,
+        group: group._id,
+        payout: payout._id,
+        actionUrl: '/payouts',
+        metadata: {
+          cycleNumber: payout.cycle.cycleNumber,
+          amount: payout.amount,
+          beneficiaryName: payout.beneficiary.user.name
+        }
+      });
+
+      // Send email notification
+      if (group.organizer.email) {
+        await notificationService.sendPayoutApprovedNotification(
+          group.organizer,
+          payout.beneficiary.user,
+          group,
+          payout
+        );
+      }
+    }
+  } catch (err) {
+    console.error('Failed to send payout approved notification to admin:', err);
+  }
+
+  return payout;
+};
+
+/**
+ * Complete payout (Admin completes with transaction details)
+ */
+const executePayout = async (payoutData) => {
+  const {
+    cycleId,
+    payoutId,
     amount,
     transferMode,
     transferReference,
     transactionId,
-    scheduledDate: scheduledDate || new Date(),
+    scheduledDate,
     recipientAccount,
     processorRemarks,
     proofDocument,
-    status: PAYOUT_STATUS.COMPLETED,
-    processedBy: executedBy,
-    processedAt: new Date(),
-    completedAt: new Date(),
-  });
+    executedBy,
+  } = payoutData;
+
+  let payout;
+  let cycle;
+
+  if (payoutId) {
+    // Complete existing payout
+    payout = await Payout.findById(payoutId)
+      .populate({
+        path: 'beneficiary',
+        populate: { path: 'user', select: 'name email phone' }
+      })
+      .populate('group')
+      .populate('cycle');
+
+    if (!payout) {
+      throw ApiError.notFound('Payout not found');
+    }
+
+    if (payout.status !== PAYOUT_STATUS.APPROVED && payout.status !== PAYOUT_STATUS.SCHEDULED) {
+      throw ApiError.badRequest('Payout must be approved before completion');
+    }
+
+    cycle = payout.cycle;
+  } else {
+    // Legacy flow - direct execution
+    cycle = await Cycle.findById(cycleId)
+      .populate({
+        path: 'beneficiary',
+        populate: { path: 'user', select: 'name email phone' }
+      })
+      .populate('group');
+
+    if (!cycle) {
+      throw ApiError.notFound('Cycle not found');
+    }
+
+    // Check if cycle is ready for payout
+    if (!cycle.isReadyForPayout) {
+      await cycle.checkPayoutReadiness();
+      if (!cycle.isReadyForPayout) {
+        throw ApiError.badRequest('Cycle is not ready for payout. Not all payments received.');
+      }
+    }
+
+    // Check if payout already exists
+    payout = await Payout.findOne({ cycle: cycleId });
+    if (payout && payout.status === PAYOUT_STATUS.COMPLETED) {
+      throw ApiError.conflict('Payout already completed for this cycle');
+    }
+  }
+
+  // Use provided amount or existing payout amount
+  const finalAmount = amount ? parseInt(amount, 10) : (payout?.amount || 0);
+
+  if (!payout) {
+    // Create new payout directly as completed (legacy flow)
+    payout = await Payout.create({
+      group: cycle.group._id,
+      cycle: cycle._id,
+      beneficiary: cycle.beneficiary._id,
+      amount: finalAmount,
+      transferMode,
+      transferReference,
+      transactionId,
+      scheduledDate: scheduledDate || new Date(),
+      recipientAccount,
+      processorRemarks,
+      proofDocument,
+      status: PAYOUT_STATUS.COMPLETED,
+      processedBy: executedBy,
+      processedAt: new Date(),
+      completedAt: new Date(),
+    });
+  } else {
+    // Update existing payout
+    payout.amount = finalAmount || payout.amount;
+    payout.transferMode = transferMode;
+    payout.transferReference = transferReference;
+    payout.transactionId = transactionId;
+    payout.recipientAccount = recipientAccount;
+    payout.processorRemarks = processorRemarks;
+    if (proofDocument) {
+      payout.proofDocument = proofDocument;
+    }
+    payout.status = PAYOUT_STATUS.COMPLETED;
+    payout.processedBy = executedBy;
+    payout.processedAt = new Date();
+    payout.completedAt = new Date();
+    await payout.save();
+  }
 
   // Update cycle
-  await cycle.completePayout(
+  const cycleToUpdate = await Cycle.findById(payout.cycle._id || payout.cycle);
+  await cycleToUpdate.completePayout(
     {
-      amount,
+      amount: payout.amount,
       reference: transferReference,
       proof: proofDocument,
     },
@@ -76,15 +319,15 @@ const executePayout = async (payoutData) => {
   );
 
   // Update member
-  const member = await Member.findById(cycle.beneficiary._id);
+  const member = await Member.findById(payout.beneficiary._id || payout.beneficiary);
   member.hasReceivedPayout = true;
   member.payoutReceivedAt = new Date();
-  member.payoutAmount = amount;
+  member.payoutAmount = payout.amount;
   await member.save();
 
   // Update group stats and move to next cycle
-  const group = await Group.findById(cycle.group._id);
-  group.stats.totalDisbursed += amount;
+  const group = await Group.findById(payout.group._id || payout.group);
+  group.stats.totalDisbursed = Math.round(Number(group.stats.totalDisbursed) + Number(payout.amount));
   group.stats.completedCycles += 1;
   
   if (group.currentCycle < group.duration) {
@@ -110,13 +353,48 @@ const executePayout = async (payoutData) => {
 
   // Log action
   await AuditLog.logAction({
-    groupId: cycle.group._id,
+    groupId: group._id,
     action: AUDIT_ACTIONS.PAYOUT_EXECUTED,
-    description: `Payout of ${amount} executed for cycle ${cycle.cycleNumber}`,
+    description: `Payout of ₹${payout.amount} completed for cycle ${cycleToUpdate.cycleNumber}`,
     userId: executedBy,
-    memberId: cycle.beneficiary._id,
-    cycleId,
+    memberId: payout.beneficiary._id || payout.beneficiary,
+    cycleId: payout.cycle._id || payout.cycle,
   });
+
+  // Send notification to beneficiary about completed payout (email + in-app)
+  try {
+    const beneficiaryMember = await Member.findById(payout.beneficiary._id || payout.beneficiary)
+      .populate('user', 'name email phone');
+    if (beneficiaryMember && beneficiaryMember.user) {
+      // Create in-app notification
+      await Notification.createNotification({
+        user: beneficiaryMember.user._id,
+        type: NOTIFICATION_TYPES.PAYOUT_COMPLETED,
+        title: 'Payout Completed! 🎉',
+        message: `Your payout of ₹${payout.amount.toLocaleString()} from ${group.name} has been completed. Check the transaction details.`,
+        group: group._id,
+        payout: payout._id,
+        actionUrl: '/payouts',
+        metadata: {
+          cycleNumber: cycleToUpdate.cycleNumber,
+          amount: payout.amount,
+          transactionId: payout.transactionId,
+          transferMode: payout.transferMode
+        }
+      });
+
+      // Send email notification
+      if (beneficiaryMember.user.email) {
+        await notificationService.sendPayoutCompletedNotification(
+          beneficiaryMember.user,
+          group,
+          payout
+        );
+      }
+    }
+  } catch (err) {
+    console.error('Failed to send payout completed notification:', err);
+  }
 
   return payout.populate('beneficiary', 'user turnNumber');
 };
@@ -158,6 +436,7 @@ const getGroupPayouts = async (groupId) => {
       },
     })
     .populate('cycle', 'cycleNumber startDate endDate')
+    .populate('group', 'name monthlyContribution')
     .sort({ scheduledDate: -1 });
 
   return payouts;
@@ -197,10 +476,35 @@ const markPayoutFailed = async (payoutId, reason) => {
   return payout;
 };
 
+/**
+ * Get pending payouts for a user (beneficiary)
+ */
+const getPendingPayoutsForUser = async (userId) => {
+  const members = await Member.find({ user: userId });
+  const memberIds = members.map(m => m._id);
+
+  const payouts = await Payout.find({
+    beneficiary: { $in: memberIds },
+    status: PAYOUT_STATUS.PENDING_APPROVAL
+  })
+    .populate('group', 'name')
+    .populate('cycle', 'cycleNumber')
+    .populate({
+      path: 'beneficiary',
+      populate: { path: 'user', select: 'name email' }
+    })
+    .sort({ initiatedAt: -1 });
+
+  return payouts;
+};
+
 module.exports = {
+  initiatePayout,
+  approvePayout,
   executePayout,
   getPayoutById,
   getGroupPayouts,
   completePayout,
   markPayoutFailed,
+  getPendingPayoutsForUser,
 };

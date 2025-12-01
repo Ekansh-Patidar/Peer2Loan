@@ -10,8 +10,11 @@ const logger = require('./utils/logger');
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// Security middleware - Configure helmet to allow images
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false, // Disable CSP for development
+}));
 
 // CORS configuration
 app.use(cors({

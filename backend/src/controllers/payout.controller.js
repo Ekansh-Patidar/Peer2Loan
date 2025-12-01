@@ -3,7 +3,46 @@ const ApiResponse = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 
 /**
- * @desc    Execute payout
+ * @desc    Initiate payout (Admin starts the process)
+ * @route   POST /api/v1/payouts/initiate
+ * @access  Private (Organizer only)
+ */
+const initiatePayout = asyncHandler(async (req, res) => {
+  const payoutData = {
+    ...req.body,
+    executedBy: req.user._id,
+  };
+
+  const payout = await payoutService.initiatePayout(payoutData);
+
+  return ApiResponse.created(
+    res,
+    { payout },
+    'Payout initiated successfully. Waiting for beneficiary approval.'
+  );
+});
+
+/**
+ * @desc    Approve payout (Beneficiary approves)
+ * @route   PUT /api/v1/payouts/:payoutId/approve
+ * @access  Private (Beneficiary only)
+ */
+const approvePayout = asyncHandler(async (req, res) => {
+  const payout = await payoutService.approvePayout(
+    req.params.payoutId,
+    req.user._id,
+    req.body.remarks
+  );
+
+  return ApiResponse.success(
+    res,
+    { payout },
+    'Payout approved successfully. Admin will now process the transfer.'
+  );
+});
+
+/**
+ * @desc    Execute/Complete payout (Admin completes with transaction details)
  * @route   POST /api/v1/payouts
  * @access  Private (Organizer only)
  */
@@ -29,7 +68,22 @@ const executePayout = asyncHandler(async (req, res) => {
   return ApiResponse.created(
     res,
     { payout },
-    'Payout executed successfully'
+    'Payout completed successfully'
+  );
+});
+
+/**
+ * @desc    Get pending payouts for current user (as beneficiary)
+ * @route   GET /api/v1/payouts/pending
+ * @access  Private
+ */
+const getPendingPayouts = asyncHandler(async (req, res) => {
+  const payouts = await payoutService.getPendingPayoutsForUser(req.user._id);
+
+  return ApiResponse.success(
+    res,
+    { payouts },
+    'Pending payouts retrieved successfully'
   );
 });
 
@@ -100,9 +154,12 @@ const markPayoutFailed = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  initiatePayout,
+  approvePayout,
   executePayout,
   getPayoutById,
   getGroupPayouts,
   completePayout,
   markPayoutFailed,
+  getPendingPayouts,
 };

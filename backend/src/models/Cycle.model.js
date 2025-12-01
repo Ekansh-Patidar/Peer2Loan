@@ -194,14 +194,14 @@ cycleSchema.methods.updatePaymentCounts = async function() {
       case 'paid':
       case 'confirmed':
         this.paidCount += item.count;
-        this.collectedAmount += item.amount;
+        this.collectedAmount += Math.round(Number(item.amount));
         break;
       case 'pending':
         this.pendingCount += item.count;
         break;
       case 'late':
         this.lateCount += item.count;
-        this.collectedAmount += item.amount;
+        this.collectedAmount += Math.round(Number(item.amount));
         break;
       case 'defaulted':
         this.defaultedCount += item.count;

@@ -28,12 +28,12 @@ const paymentSchema = new mongoose.Schema({
     required: [true, 'Payment amount is required'],
     min: [0, 'Amount cannot be negative'],
     set: function(val) {
-      // Round to 2 decimal places to avoid floating point issues
-      return Math.round(val * 100) / 100;
+      // Round to nearest integer for INR (no decimal places needed)
+      return Math.round(Number(val));
     },
     get: function(val) {
-      // Ensure we always return properly rounded value
-      return Math.round(val * 100) / 100;
+      // Ensure we always return integer value
+      return Math.round(Number(val));
     }
   },
   currency: {
@@ -143,7 +143,7 @@ paymentSchema.index({ member: 1, cycle: 1 }, { unique: true });
 // Round amount before saving to avoid floating point issues
 paymentSchema.pre('save', function(next) {
   if (this.amount) {
-    this.amount = Math.round(this.amount * 100) / 100;
+    this.amount = Math.round(Number(this.amount));
   }
   next();
 });

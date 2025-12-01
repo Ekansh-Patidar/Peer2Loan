@@ -175,6 +175,19 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
       return;
     }
 
+    // Validate transaction reference (required)
+    const transactionId = upiData?.transactionRef || formData.transactionRef;
+    if (!transactionId || !transactionId.trim()) {
+      setError('Transaction ID / Reference is required');
+      return;
+    }
+
+    // Validate payment proof (required)
+    if (!formData.paymentProof) {
+      setError('Payment proof is required. Please upload a screenshot or receipt.');
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -182,10 +195,14 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
       const submitData = new FormData();
       submitData.append('groupId', formData.groupId);
       submitData.append('cycleId', formData.cycleId);
-      // Convert to integer to avoid floating point issues, then convert back
-      const amountInPaise = Math.round(parseFloat(formData.amount) * 100);
-      const amountInRupees = amountInPaise / 100;
-      submitData.append('amount', amountInRupees.toFixed(2));
+      
+      // Log the raw amount value
+      console.log('Raw amount from form:', formData.amount, 'Type:', typeof formData.amount);
+      
+      // Simply use the amount as-is (it's already a string from the input)
+      const amountValue = String(formData.amount).trim();
+      console.log('Amount being sent:', amountValue);
+      submitData.append('amount', amountValue);
       submitData.append('paymentMode', upiData?.paymentMode || formData.paymentMode);
       
       // Only add transactionId if it has a value
@@ -373,27 +390,35 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
           </div>
 
           <div className="form-group">
-            <label htmlFor="transactionRef">Transaction Reference</label>
+            <label htmlFor="transactionRef">Transaction ID / Reference *</label>
             <input
               type="text"
               id="transactionRef"
               name="transactionRef"
               value={formData.transactionRef}
               onChange={handleChange}
-              placeholder="UPI ID, Transaction ID, Cheque No., etc."
+              placeholder="UPI Transaction ID, Bank Ref No., Cheque No., etc."
+              required
             />
+            <small className="form-hint">Required for verification by admin</small>
           </div>
 
           <div className="form-group">
-            <label htmlFor="paymentProof">Payment Proof (Optional)</label>
+            <label htmlFor="paymentProof">Payment Proof *</label>
             <input
               type="file"
               id="paymentProof"
               name="paymentProof"
               onChange={handleFileChange}
               accept="image/*,.pdf"
+              required={!formData.paymentProof}
             />
-            <small className="form-hint">Upload screenshot or receipt (Max 5MB)</small>
+            <small className="form-hint">Upload screenshot or receipt (Max 5MB) - Required</small>
+            {formData.paymentProof && (
+              <small className="form-hint" style={{ color: '#16a34a' }}>
+                ✓ File selected: {formData.paymentProof.name}
+              </small>
+            )}
           </div>
 
           <div className="form-group">

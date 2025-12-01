@@ -28,6 +28,8 @@ module.exports = {
   // Payout status
   PAYOUT_STATUS: {
     SCHEDULED: 'scheduled',
+    PENDING_APPROVAL: 'pending_approval',
+    APPROVED: 'approved',
     PROCESSING: 'processing',
     COMPLETED: 'completed',
     FAILED: 'failed',
@@ -91,6 +93,8 @@ module.exports = {
     PAYMENT_CONFIRMED: 'payment_confirmed',
     LATE_FEE_APPLIED: 'late_fee_applied',
     PAYOUT_SCHEDULED: 'payout_scheduled',
+    PAYOUT_PENDING_APPROVAL: 'payout_pending_approval',
+    PAYOUT_APPROVED: 'payout_approved',
     PAYOUT_COMPLETED: 'payout_completed',
     TURN_UPCOMING: 'turn_upcoming',
     GROUP_INVITATION: 'group_invitation',
@@ -106,6 +110,8 @@ module.exports = {
     MEMBER_REMOVED: 'member_removed',
     PAYMENT_RECORDED: 'payment_recorded',
     PAYMENT_CONFIRMED: 'payment_confirmed',
+    PAYOUT_INITIATED: 'payout_initiated',
+    PAYOUT_APPROVED: 'payout_approved',
     PAYOUT_EXECUTED: 'payout_executed',
     PENALTY_APPLIED: 'penalty_applied',
     TURN_REASSIGNED: 'turn_reassigned',

@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout';
 import { Card, Button, Table, Alert, Loader } from '../../components/common';
-import { RecordPaymentModal } from '../../components/features/payments';
+import { RecordPaymentModal, PaymentApprovalModal, PaymentDetailsModal } from '../../components/features/payments';
 import useAuth from '../../hooks/useAuth';
 import { usePayments } from '../../hooks/usePayments';
 import { useGroups } from '../../hooks/useGroups';
+import api from '../../services/api';
 import '../Groups/Groups.css';
 
 /**
@@ -20,13 +21,66 @@ const PaymentsDashboard = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [pendingApprovalPayments, setPendingApprovalPayments] = useState([]);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [selectedApprovalPayment, setSelectedApprovalPayment] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedDetailsPayment, setSelectedDetailsPayment] = useState(null);
+  const [organizerGroupIds, setOrganizerGroupIds] = useState([]);
 
+  // Load groups on mount
+  const { loadGroups } = useGroups();
+  
   useEffect(() => {
     if (user?._id) {
       // Fetch payments for the current user
       fetchMyPayments();
+      // Load groups to check for organizer status
+      loadGroups();
     }
-  }, [user, fetchMyPayments]);
+  }, [user, fetchMyPayments, loadGroups]);
+
+  // Fetch pending approval payments for admin
+  useEffect(() => {
+    const fetchPendingApprovals = async () => {
+      if (!user?._id) return;
+      
+      try {
+        // If groups not loaded yet, fetch them directly
+        let groupsToCheck = groups;
+        if (!groupsToCheck || groupsToCheck.length === 0) {
+          const response = await api.get('/groups');
+          groupsToCheck = response.data?.groups || [];
+        }
+        
+        if (groupsToCheck.length === 0) return;
+        
+        const orgGroupIds = [];
+        const pendingPayments = [];
+        
+        for (const group of groupsToCheck) {
+          const isOrganizer = group.organizer === user?._id || group.organizer?._id === user?._id;
+          if (isOrganizer) {
+            orgGroupIds.push(group._id);
+            
+            // Fetch payments for this group with under_review status
+            const response = await api.get(`/payments/group/${group._id}`, {
+              params: { status: 'under_review' }
+            });
+            const groupPayments = response.data?.payments || [];
+            pendingPayments.push(...groupPayments);
+          }
+        }
+        
+        setOrganizerGroupIds(orgGroupIds);
+        setPendingApprovalPayments(pendingPayments);
+      } catch (err) {
+        console.error('Failed to fetch pending approval payments:', err);
+      }
+    };
+    
+    fetchPendingApprovals();
+  }, [groups, user]);
 
   // Check if we should open the modal from URL params
   useEffect(() => {
@@ -39,9 +93,18 @@ const PaymentsDashboard = () => {
   }, [searchParams]);
 
   const paymentList = Array.isArray(payments) ? payments : [];
-  const filteredPayments = paymentList.filter((payment) =>
-    filterStatus === 'all' ? true : payment.status === filterStatus
-  );
+  const filteredPayments = paymentList.filter((payment) => {
+    if (filterStatus === 'all') return true;
+    if (filterStatus === 'pending') {
+      // Include both pending and under_review as "Pending"
+      return payment.status === 'pending' || payment.status === 'under_review';
+    }
+    if (filterStatus === 'paid') {
+      // Include confirmed, paid, and verified as "Paid"
+      return payment.status === 'paid' || payment.status === 'confirmed' || payment.status === 'verified';
+    }
+    return payment.status === filterStatus;
+  });
 
   if (loading && paymentList.length === 0) {
     return (
@@ -54,16 +117,16 @@ const PaymentsDashboard = () => {
   }
 
   const getStatusBadge = (status) => {
-    const colors = {
-      pending: { bg: '#fff3e0', color: '#f57c00' },
-      paid: { bg: '#e3f2fd', color: '#1976d2' },
-      under_review: { bg: '#fff9c4', color: '#f57f17' },
-      verified: { bg: '#c8e6c9', color: '#388e3c' },
-      confirmed: { bg: '#e8f5e9', color: '#2e7d32' },
-      rejected: { bg: '#ffebee', color: '#c62828' },
-      late: { bg: '#ffebee', color: '#c62828' },
+    const statusConfig = {
+      pending: { bg: '#fff3e0', color: '#f57c00', label: 'Pending' },
+      paid: { bg: '#e8f5e9', color: '#2e7d32', label: 'Paid' },
+      under_review: { bg: '#fff9c4', color: '#f57f17', label: 'Under Review' },
+      verified: { bg: '#c8e6c9', color: '#388e3c', label: 'Verified' },
+      confirmed: { bg: '#e8f5e9', color: '#2e7d32', label: 'Paid' },
+      rejected: { bg: '#ffebee', color: '#c62828', label: 'Rejected' },
+      late: { bg: '#ffebee', color: '#c62828', label: 'Late' },
     };
-    const style = colors[status] || colors.pending;
+    const config = statusConfig[status] || statusConfig.pending;
     return (
       <span
         style={{
@@ -72,11 +135,11 @@ const PaymentsDashboard = () => {
           fontSize: '12px',
           fontWeight: '600',
           textTransform: 'uppercase',
-          background: style.bg,
-          color: style.color,
+          background: config.bg,
+          color: config.color,
         }}
       >
-        {status.replace('_', ' ')}
+        {config.label}
       </span>
     );
   };
@@ -173,7 +236,14 @@ const PaymentsDashboard = () => {
       key: 'actions',
       render: (_, record) => (
         <div style={{ display: 'flex', gap: '8px' }}>
-          <Button size="small" variant="outline" onClick={() => navigate(`/payments/${record._id}`)}>
+          <Button 
+            size="small" 
+            variant="outline" 
+            onClick={() => {
+              setSelectedDetailsPayment(record);
+              setShowDetailsModal(true);
+            }}
+          >
             View
           </Button>
         </div>
@@ -275,6 +345,52 @@ const PaymentsDashboard = () => {
           </Card>
         </div>
 
+        {/* Payments Pending Approval (Admin View) */}
+        {organizerGroupIds.length > 0 && pendingApprovalPayments.length > 0 && (
+          <Card title="Payments Pending Approval" subtitle={`${pendingApprovalPayments.length} payment(s) awaiting your review`}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+              {pendingApprovalPayments.map((payment) => (
+                <div key={payment._id} className="payment-card" style={{ border: '2px solid #ff9800' }}>
+                  <div className="payment-card-header">
+                    <div>
+                      <div className="payment-card-group">{payment.group?.name || 'Unknown Group'}</div>
+                      <div className="payment-card-cycle">Cycle {payment.cycle?.cycleNumber || 'N/A'}</div>
+                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                        By: {payment.member?.user?.name || 'Unknown Member'}
+                      </div>
+                    </div>
+                    {getStatusBadge(payment.status)}
+                  </div>
+                  <div className="payment-card-body">
+                    <div className="payment-card-amount">₹{payment.amount.toLocaleString()}</div>
+                    <div className="payment-card-due">
+                      Submitted: {new Date(payment.createdAt).toLocaleDateString()}
+                    </div>
+                    {payment.paymentMode && (
+                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                        Mode: {payment.paymentMode.toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="payment-card-footer" style={{ display: 'flex', gap: '8px' }}>
+                    <Button
+                      variant="primary"
+                      size="small"
+                      style={{ flex: 1 }}
+                      onClick={() => {
+                        setSelectedApprovalPayment(payment);
+                        setShowApprovalModal(true);
+                      }}
+                    >
+                      Review & Approve
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {/* Pending Payments Cards */}
         {stats.totalPending > 0 && (
           <Card title="Pending Payments" subtitle="Action required">
@@ -373,6 +489,50 @@ const PaymentsDashboard = () => {
               alert('Payment recorded successfully!');
               fetchMyPayments();
             }}
+          />
+        )}
+
+        {/* Payment Approval Modal */}
+        {showApprovalModal && selectedApprovalPayment && (
+          <PaymentApprovalModal
+            isOpen={showApprovalModal}
+            onClose={() => {
+              setShowApprovalModal(false);
+              setSelectedApprovalPayment(null);
+            }}
+            payment={selectedApprovalPayment}
+            onSuccess={() => {
+              // Refresh pending approvals
+              const fetchPendingApprovals = async () => {
+                try {
+                  const pendingPayments = [];
+                  for (const groupId of organizerGroupIds) {
+                    const response = await api.get(`/payments/group/${groupId}`, {
+                      params: { status: 'under_review' }
+                    });
+                    const groupPayments = response.data?.payments || [];
+                    pendingPayments.push(...groupPayments);
+                  }
+                  setPendingApprovalPayments(pendingPayments);
+                } catch (err) {
+                  console.error('Failed to refresh pending approvals:', err);
+                }
+              };
+              fetchPendingApprovals();
+              fetchMyPayments();
+            }}
+          />
+        )}
+
+        {/* Payment Details Modal */}
+        {showDetailsModal && selectedDetailsPayment && (
+          <PaymentDetailsModal
+            isOpen={showDetailsModal}
+            onClose={() => {
+              setShowDetailsModal(false);
+              setSelectedDetailsPayment(null);
+            }}
+            payment={selectedDetailsPayment}
           />
         )}
       </div>

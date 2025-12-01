@@ -80,7 +80,7 @@ const ExecutePayoutModal = ({ isOpen, onClose, cycle, group, onSuccess }) => {
       const submitData = new FormData();
       submitData.append('groupId', group?._id || cycle?.groupId);
       submitData.append('cycleId', formData.cycleId);
-      submitData.append('amount', Math.round(parseFloat(formData.amount) * 100) / 100);
+      submitData.append('amount', Math.round(Number(formData.amount)));
       submitData.append('transferMode', formData.transferMode);
       
       if (formData.transferReference) {

@@ -10,23 +10,27 @@ const NotificationsPage = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [invitations, setInvitations] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [processingId, setProcessingId] = useState(null);
+  const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
-    fetchInvitations();
+    fetchData();
   }, []);
 
-  const fetchInvitations = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/members/my-invitations');
-      // The axios interceptor returns response.data, so response is the ApiResponse object
-      // ApiResponse has: { success, statusCode, message, data: { invitations: [...] } }
-      setInvitations(response.data?.invitations || []);
+      const [invitationsRes, notificationsRes] = await Promise.all([
+        api.get('/members/my-invitations'),
+        api.get('/notifications')
+      ]);
+      setInvitations(invitationsRes.data?.invitations || []);
+      setNotifications(notificationsRes.data?.notifications || []);
     } catch (err) {
-      setError(err.message || 'Failed to load invitations');
+      setError(err.message || 'Failed to load notifications');
     } finally {
       setLoading(false);
     }
@@ -36,8 +40,8 @@ const NotificationsPage = () => {
     try {
       setProcessingId(groupId);
       await api.post(`/groups/${groupId}/accept`);
-      alert('Invitation accepted! You are now a member of the group.');
-      fetchInvitations();
+      alert('Invitation accepted!');
+      fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to accept invitation');
     } finally {
@@ -50,13 +54,63 @@ const NotificationsPage = () => {
       setProcessingId(groupId);
       await api.post(`/members/${memberId}/reject`);
       alert('Invitation rejected');
-      fetchInvitations();
+      fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to reject invitation');
     } finally {
       setProcessingId(null);
     }
   };
+
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      await api.put(`/notifications/${notificationId}/read`);
+      setNotifications(prev => 
+        prev.map(n => n._id === notificationId ? { ...n, isRead: true } : n)
+      );
+    } catch (err) {
+      console.error('Failed to mark as read:', err);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await api.put('/notifications/read-all');
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    }
+  };
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification.isRead) {
+      await handleMarkAsRead(notification._id);
+    }
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl);
+    }
+  };
+
+
+  const getNotificationIcon = (type) => {
+    const icons = {
+      payout_pending_approval: { className: 'pending', path: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+      payout_approved: { className: 'approved', path: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+      payout_completed: { className: 'completed', path: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' }
+    };
+    const icon = icons[type] || { className: 'default', path: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' };
+    
+    return (
+      <div className={`notification-icon ${icon.className}`}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d={icon.path} />
+        </svg>
+      </div>
+    );
+  };
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const totalCount = invitations.length + notifications.length;
 
   if (loading) {
     return (
@@ -72,32 +126,50 @@ const NotificationsPage = () => {
     <DashboardLayout user={user} onLogout={logout}>
       <div className="notifications-page">
         <div className="page-header">
-          <h1>Notifications</h1>
-          <p className="page-subtitle">Manage your group invitations</p>
+          <div>
+            <h1>Notifications</h1>
+            <p className="page-subtitle">
+              {totalCount > 0 ? `${totalCount} notification(s)` : 'No notifications'}
+              {unreadCount > 0 && ` • ${unreadCount} unread`}
+            </p>
+          </div>
+          {unreadCount > 0 && (
+            <Button variant="outline" size="small" onClick={handleMarkAllAsRead}>
+              Mark all as read
+            </Button>
+          )}
         </div>
 
-        {error && (
-          <Alert type="error" closable>
-            {error}
-          </Alert>
-        )}
+        {error && <Alert type="error" closable onClose={() => setError(null)}>{error}</Alert>}
 
-        {invitations.length === 0 ? (
+        <div className="notification-tabs">
+          <button className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>
+            All ({totalCount})
+          </button>
+          <button className={`tab ${activeTab === 'invitations' ? 'active' : ''}`} onClick={() => setActiveTab('invitations')}>
+            Invitations ({invitations.length})
+          </button>
+          <button className={`tab ${activeTab === 'payouts' ? 'active' : ''}`} onClick={() => setActiveTab('payouts')}>
+            Payouts ({notifications.filter(n => n.type?.includes('payout')).length})
+          </button>
+        </div>
+
+        {totalCount === 0 ? (
           <Card>
             <div className="empty-state">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '64px', height: '64px', color: '#9e9e9e' }}>
                 <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
-              <h2>No pending invitations</h2>
-              <p>You're all caught up! New group invitations will appear here.</p>
+              <h2>No notifications</h2>
+              <p>You're all caught up!</p>
             </div>
           </Card>
         ) : (
-          <div className="invitations-list">
-            {invitations.map((invitation) => (
-              <Card key={invitation._id} variant="elevated">
+          <div className="notifications-list">
+            {(activeTab === 'all' || activeTab === 'invitations') && invitations.map((inv) => (
+              <Card key={`inv-${inv._id}`} variant="elevated">
                 <div className="invitation-card">
-                  <div className="invitation-icon">
+                  <div className="notification-icon invitation">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                       <circle cx="9" cy="7" r="4" />
@@ -106,45 +178,41 @@ const NotificationsPage = () => {
                   </div>
                   <div className="invitation-content">
                     <h3>Group Invitation</h3>
-                    <p className="invitation-group-name">{invitation.group?.name}</p>
+                    <p className="invitation-group-name">{inv.group?.name}</p>
                     <div className="invitation-details">
-                      <div className="detail-item">
-                        <span className="detail-label">Monthly Contribution:</span>
-                        <span className="detail-value">₹{invitation.group?.monthlyContribution?.toLocaleString()}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="detail-label">Your Turn Number:</span>
-                        <span className="detail-value">#{invitation.turnNumber}</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="detail-label">Group Size:</span>
-                        <span className="detail-value">{invitation.group?.memberCount} members</span>
-                      </div>
-                      <div className="detail-item">
-                        <span className="detail-label">Start Date:</span>
-                        <span className="detail-value">{new Date(invitation.group?.startDate).toLocaleDateString()}</span>
-                      </div>
+                      <span>₹{inv.group?.monthlyContribution?.toLocaleString()}/month</span>
+                      <span>•</span>
+                      <span>Turn #{inv.turnNumber}</span>
                     </div>
-                    {invitation.group?.description && (
-                      <p className="invitation-description">{invitation.group.description}</p>
-                    )}
                   </div>
                   <div className="invitation-actions">
-                    <Button
-                      variant="success"
-                      onClick={() => handleAccept(invitation.group._id)}
-                      disabled={processingId === invitation.group._id}
-                    >
-                      {processingId === invitation.group._id ? 'Accepting...' : 'Accept'}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onClick={() => handleReject(invitation.group._id, invitation._id)}
-                      disabled={processingId === invitation.group._id}
-                    >
-                      Reject
-                    </Button>
+                    <Button variant="success" size="small" onClick={() => handleAccept(inv.group._id)} disabled={processingId === inv.group._id}>Accept</Button>
+                    <Button variant="outline" size="small" onClick={() => handleReject(inv.group._id, inv._id)} disabled={processingId === inv.group._id}>Reject</Button>
                   </div>
+                </div>
+              </Card>
+            ))}
+
+            {(activeTab === 'all' || activeTab === 'payouts') && notifications
+              .filter(n => activeTab === 'all' || n.type?.includes('payout'))
+              .map((notif) => (
+              <Card key={`notif-${notif._id}`} variant="elevated" className={!notif.isRead ? 'unread' : ''}>
+                <div className="notification-card clickable" onClick={() => handleNotificationClick(notif)}>
+                  {getNotificationIcon(notif.type)}
+                  <div className="notification-content">
+                    <div className="notification-header">
+                      <h3>{notif.title}</h3>
+                      {!notif.isRead && <span className="unread-dot"></span>}
+                    </div>
+                    <p className="notification-message">{notif.message}</p>
+                    <div className="notification-meta">
+                      <span>{new Date(notif.createdAt).toLocaleDateString()}</span>
+                      {notif.group?.name && <span>• {notif.group.name}</span>}
+                    </div>
+                  </div>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20" style={{ color: '#9ca3af' }}>
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
                 </div>
               </Card>
             ))}

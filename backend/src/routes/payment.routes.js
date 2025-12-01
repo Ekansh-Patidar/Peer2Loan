@@ -37,6 +37,7 @@ router.get('/:paymentId', paymentIdValidator, validate, paymentController.getPay
 
 // Admin actions
 router.put('/:paymentId/confirm', confirmPaymentValidator, validate, isGroupOrganizer, paymentController.confirmPayment);
+router.put('/:paymentId/reject', paymentIdValidator, validate, isGroupOrganizer, paymentController.rejectPayment);
 router.put('/:paymentId/mark-late', paymentIdValidator, validate, isGroupOrganizer, paymentController.markPaymentLate);
 
 module.exports = router;

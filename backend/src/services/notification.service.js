@@ -101,6 +101,76 @@ const sendPayoutNotification = async (user, group, payout) => {
 };
 
 /**
+ * Send payout pending approval notification to beneficiary
+ */
+const sendPayoutPendingApproval = async (user, group, payout, cycle) => {
+  const subject = `Action Required: Approve Your Payout - ${group.name}`;
+  const html = `
+    <h2>Payout Ready for Your Approval</h2>
+    <p>Dear ${user.name},</p>
+    <p>Great news! Your payout from <strong>${group.name}</strong> is ready and waiting for your approval.</p>
+    <p><strong>Payout Details:</strong></p>
+    <ul>
+      <li>Group: ${group.name}</li>
+      <li>Cycle: ${cycle.cycleNumber}</li>
+      <li>Amount: ₹${payout.amount?.toLocaleString()}</li>
+    </ul>
+    <p>Please log in to your account to review and approve this payout. Once approved, the admin will process the transfer.</p>
+    <p>Best regards,<br>Peer2Loan Team</p>
+  `;
+
+  await sendEmail(user.email, subject, html);
+};
+
+/**
+ * Send notification to admin when beneficiary approves payout
+ */
+const sendPayoutApprovedNotification = async (admin, beneficiary, group, payout) => {
+  const subject = `Payout Approved by Beneficiary - ${group.name}`;
+  const html = `
+    <h2>Payout Approved</h2>
+    <p>Dear ${admin.name},</p>
+    <p><strong>${beneficiary.name}</strong> has approved their payout from <strong>${group.name}</strong>.</p>
+    <p><strong>Details:</strong></p>
+    <ul>
+      <li>Beneficiary: ${beneficiary.name}</li>
+      <li>Amount: ₹${payout.amount?.toLocaleString()}</li>
+      <li>Approved At: ${new Date().toLocaleDateString()}</li>
+    </ul>
+    <p>Please proceed to complete the payout transfer and upload the transaction proof.</p>
+    <p>Best regards,<br>Peer2Loan Team</p>
+  `;
+
+  await sendEmail(admin.email, subject, html);
+};
+
+/**
+ * Send payout completed notification to beneficiary with transaction details
+ */
+const sendPayoutCompletedNotification = async (user, group, payout) => {
+  const subject = `Payout Completed - ${group.name}`;
+  const html = `
+    <h2>Your Payout Has Been Completed!</h2>
+    <p>Dear ${user.name},</p>
+    <p>Your payout from <strong>${group.name}</strong> has been successfully processed.</p>
+    <p><strong>Transaction Details:</strong></p>
+    <ul>
+      <li>Amount: ₹${payout.amount?.toLocaleString()}</li>
+      <li>Transfer Mode: ${payout.transferMode?.replace('_', ' ')?.toUpperCase()}</li>
+      ${payout.transactionId ? `<li>Transaction ID: ${payout.transactionId}</li>` : ''}
+      ${payout.transferReference ? `<li>Reference: ${payout.transferReference}</li>` : ''}
+      <li>Completed At: ${payout.completedAt?.toLocaleDateString()}</li>
+    </ul>
+    ${payout.processorRemarks ? `<p><strong>Remarks:</strong> ${payout.processorRemarks}</p>` : ''}
+    <p>Please log in to your account to view the complete transaction details and proof document.</p>
+    <p>If you have any questions, please contact your group admin.</p>
+    <p>Best regards,<br>Peer2Loan Team</p>
+  `;
+
+  await sendEmail(user.email, subject, html);
+};
+
+/**
  * Send late fee notification
  */
 const sendLateFeeNotification = async (user, group, payment, penalty) => {
@@ -197,6 +267,9 @@ module.exports = {
   sendPaymentReminder,
   sendPaymentConfirmation,
   sendPayoutNotification,
+  sendPayoutPendingApproval,
+  sendPayoutApprovedNotification,
+  sendPayoutCompletedNotification,
   sendLateFeeNotification,
   sendGroupInvitation,
   sendDefaultNotification,

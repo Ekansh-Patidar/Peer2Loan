@@ -5,7 +5,43 @@ import api from './api';
  */
 const payoutService = {
   /**
-   * Execute a payout
+   * Initiate a payout (Admin starts the process)
+   */
+  initiatePayout: async (payoutData) => {
+    try {
+      const response = await api.post('/payouts/initiate', payoutData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  /**
+   * Approve a payout (Beneficiary approves)
+   */
+  approvePayout: async (payoutId, remarks = '') => {
+    try {
+      const response = await api.put(`/payouts/${payoutId}/approve`, { remarks });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  /**
+   * Get pending payouts for current user (as beneficiary)
+   */
+  getPendingPayouts: async () => {
+    try {
+      const response = await api.get('/payouts/pending');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  /**
+   * Execute/Complete a payout (Admin completes with transaction details)
    */
   executePayout: async (payoutData) => {
     try {

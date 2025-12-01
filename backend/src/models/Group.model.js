@@ -121,30 +121,30 @@ const groupSchema = new mongoose.Schema({
       type: Number,
       default: 0,
       set: function(val) {
-        return Math.round(val * 100) / 100;
+        return Math.round(Number(val));
       },
       get: function(val) {
-        return Math.round(val * 100) / 100;
+        return Math.round(Number(val));
       }
     },
     totalDisbursed: {
       type: Number,
       default: 0,
       set: function(val) {
-        return Math.round(val * 100) / 100;
+        return Math.round(Number(val));
       },
       get: function(val) {
-        return Math.round(val * 100) / 100;
+        return Math.round(Number(val));
       }
     },
     totalPenalties: {
       type: Number,
       default: 0,
       set: function(val) {
-        return Math.round(val * 100) / 100;
+        return Math.round(Number(val));
       },
       get: function(val) {
-        return Math.round(val * 100) / 100;
+        return Math.round(Number(val));
       }
     },
     completedCycles: {

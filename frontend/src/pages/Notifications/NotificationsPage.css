@@ -1,116 +1,188 @@
 .notifications-page {
-  max-width: 1200px;
+  max-width: 900px;
   margin: 0 auto;
-  padding: 24px;
 }
 
 .page-header {
-  margin-bottom: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
 }
 
 .page-header h1 {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: #1a1a1a;
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0;
 }
 
 .page-subtitle {
-  font-size: 16px;
+  font-size: 14px;
   color: #666;
   margin: 0;
 }
 
-.invitations-list {
+.notification-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 12px;
+}
+
+.notification-tabs .tab {
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.notification-tabs .tab:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.notification-tabs .tab.active {
+  background: #1a1a1a;
+  color: white;
+}
+
+.notifications-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.invitation-card {
+.invitation-card,
+.notification-card {
   display: flex;
-  gap: 20px;
-  padding: 8px;
+  gap: 16px;
+  padding: 4px;
+  align-items: center;
 }
 
-.invitation-icon {
-  width: 56px;
-  height: 56px;
+.notification-card.clickable {
+  cursor: pointer;
+  transition: background 0.2s;
+  border-radius: 8px;
+  padding: 8px;
+  margin: -8px;
+}
+
+.notification-card.clickable:hover {
+  background: #f9fafb;
+}
+
+.notification-icon {
+  width: 48px;
+  height: 48px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.invitation-icon svg {
-  width: 28px;
-  height: 28px;
-  stroke: white;
+.notification-icon svg {
+  width: 24px;
+  height: 24px;
 }
 
-.invitation-content {
+.notification-icon.invitation {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.notification-icon.invitation svg { stroke: white; }
+
+.notification-icon.pending {
+  background: #fef3c7;
+}
+.notification-icon.pending svg { stroke: #d97706; }
+
+.notification-icon.approved {
+  background: #d1fae5;
+}
+.notification-icon.approved svg { stroke: #059669; }
+
+.notification-icon.completed {
+  background: #dbeafe;
+}
+.notification-icon.completed svg { stroke: #2563eb; }
+
+.notification-icon.default {
+  background: #f3f4f6;
+}
+.notification-icon.default svg { stroke: #6b7280; }
+
+.invitation-content,
+.notification-content {
   flex: 1;
+  min-width: 0;
 }
 
-.invitation-content h3 {
-  font-size: 14px;
+.invitation-content h3,
+.notification-header h3 {
+  font-size: 15px;
   font-weight: 600;
-  color: #666;
+  color: #1f2937;
   margin: 0 0 4px 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+}
+
+.notification-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.unread-dot {
+  width: 8px;
+  height: 8px;
+  background: #3b82f6;
+  border-radius: 50%;
 }
 
 .invitation-group-name {
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   color: #1a1a1a;
-  margin: 0 0 16px 0;
+  margin: 0 0 8px 0;
 }
 
 .invitation-details {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.detail-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7280;
 }
 
-.detail-label {
-  font-size: 12px;
-  color: #999;
-  font-weight: 500;
-}
-
-.detail-value {
-  font-size: 16px;
-  color: #1a1a1a;
-  font-weight: 600;
-}
-
-.invitation-description {
+.notification-message {
   font-size: 14px;
-  color: #666;
-  line-height: 1.6;
-  margin: 12px 0 0 0;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 8px;
+  color: #4b5563;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.notification-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 .invitation-actions {
   display: flex;
-  flex-direction: column;
   gap: 8px;
-  align-items: stretch;
-  min-width: 120px;
+  align-items: center;
+}
+
+.unread {
+  background: #eff6ff !important;
+  border-left: 3px solid #3b82f6;
 }
 
 .empty-state {
