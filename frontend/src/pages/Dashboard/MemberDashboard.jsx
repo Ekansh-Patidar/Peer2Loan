@@ -47,7 +47,7 @@ const MemberDashboard = () => {
     );
   }
 
-  const { member, group, financials, upcomingTurn, currentCyclePayment, recentPayments } = data;
+  const { member, group, financials, upcomingTurn, currentCyclePayment, recentPayments, unpaidPenalties } = data;
 
   // Payment history table columns
   const paymentColumns = [
@@ -118,11 +118,31 @@ const MemberDashboard = () => {
         {/* Current Payment Alert */}
         {currentCyclePayment && currentCyclePayment.status === 'pending' && (
           <Alert type="warning" title="Payment Due">
-            Your payment of ₹{group.monthlyContribution.toLocaleString()} is due by{' '}
-            {new Date(currentCyclePayment.dueDate).toLocaleDateString()}
-            <Button variant="primary" size="small" style={{ marginLeft: '16px' }}>
+            {currentCyclePayment.includedPenalties > 0 ? (
+              <>
+                <div>Your payment of <strong>₹{currentCyclePayment.amount.toLocaleString()}</strong> is due by{' '}
+                  {new Date(currentCyclePayment.dueDate).toLocaleDateString()}</div>
+                <div style={{ fontSize: '13px', marginTop: '8px', color: '#666' }}>
+                  • Base Contribution: ₹{currentCyclePayment.baseContribution.toLocaleString()}<br />
+                  • Unpaid Penalties: ₹{currentCyclePayment.includedPenalties.toLocaleString()}
+                </div>
+              </>
+            ) : (
+              <>
+                Your payment of ₹{currentCyclePayment.amount.toLocaleString()} is due by{' '}
+                {new Date(currentCyclePayment.dueDate).toLocaleDateString()}
+              </>
+            )}
+            <Button variant="primary" size="small" style={{ marginTop: '12px' }}>
               Pay Now
             </Button>
+          </Alert>
+        )}
+
+        {/* Unpaid Penalties Alert */}
+        {unpaidPenalties && unpaidPenalties.length > 0 && (
+          <Alert type="error" title="Unpaid Penalties">
+            You have {unpaidPenalties.length} unpaid {unpaidPenalties.length === 1 ? 'penalty' : 'penalties'} totaling ₹{financials.unpaidPenalties.toLocaleString()}. Please clear these to maintain good standing.
           </Alert>
         )}
 
@@ -209,6 +229,34 @@ const MemberDashboard = () => {
           </Card>
         )}
 
+        {/* Unpaid Penalties */}
+        {unpaidPenalties && unpaidPenalties.length > 0 && (
+          <Card title="Unpaid Penalties" variant="elevated">
+            <div className="penalties-list">
+              {unpaidPenalties.map((penalty) => (
+                <div key={penalty.id} className="penalty-item">
+                  <div className="penalty-header">
+                    <span className="penalty-type">
+                      {penalty.type === 'late_fee' ? 'Late Fee' : penalty.type === 'default_penalty' ? 'Default Penalty' : 'Custom Penalty'}
+                    </span>
+                    <span className="penalty-amount">₹{penalty.amount.toLocaleString()}</span>
+                  </div>
+                  <div className="penalty-details">
+                    <span>Cycle {penalty.cycleNumber}</span>
+                    {penalty.daysLate > 0 && <span> • {penalty.daysLate} days late</span>}
+                    <span> • {penalty.reason}</span>
+                  </div>
+                  <div className="penalty-date">Applied on: {new Date(penalty.appliedAt).toLocaleDateString()}</div>
+                </div>
+              ))}
+              <div className="penalties-total">
+                <span>Total Unpaid:</span>
+                <span className="total-amount">₹{financials.unpaidPenalties.toLocaleString()}</span>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Payment Performance */}
         <div className="performance-grid">
           <Card title="Payment Performance" variant="outlined">
@@ -224,6 +272,10 @@ const MemberDashboard = () => {
               <div className="performance-item">
                 <span className="label">Total Penalties:</span>
                 <span className="value">₹{financials.totalPenalties.toLocaleString()}</span>
+              </div>
+              <div className="performance-item">
+                <span className="label">Unpaid Penalties:</span>
+                <span className="value error">₹{financials.unpaidPenalties.toLocaleString()}</span>
               </div>
             </div>
           </Card>

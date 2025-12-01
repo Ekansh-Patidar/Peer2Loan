@@ -34,7 +34,7 @@ const initiatePayout = async (payoutData) => {
 
   // Check if payout already exists
   let payout = await Payout.findOne({ cycle: cycleId });
-  
+
   if (payout && payout.status !== PAYOUT_STATUS.SCHEDULED) {
     throw ApiError.conflict('Payout has already been initiated for this cycle');
   }
@@ -329,47 +329,102 @@ const executePayout = async (payoutData) => {
   const group = await Group.findById(payout.group._id || payout.group);
   group.stats.totalDisbursed = Math.round(group.stats.totalDisbursed) + Math.round(payout.amount);
   group.stats.completedCycles += 1;
-  
+
+  // Get the completed cycle to apply late fees
+  const completedCycle = await Cycle.findById(payout.cycle._id || payout.cycle);
+
   if (group.currentCycle < group.duration) {
     group.currentCycle += 1;
-    
+
+    // Apply late fees to unpaid payments from the cycle that just ended
+    const Payment = require('../models/Payment.model');
+    const penaltyService = require('./penalty.service');
+    const { PAYMENT_STATUS } = require('../config/constants');
+
+    // Find all pending payments from the completed cycle
+    const unpaidPayments = await Payment.find({
+      cycle: completedCycle._id,
+      status: { $in: [PAYMENT_STATUS.PENDING, 'under_review'] },
+    }).populate('member').populate('group');
+
+    // Apply late fees immediately
+    for (const payment of unpaidPayments) {
+      // Mark payment as late
+      payment.status = PAYMENT_STATUS.LATE;
+      payment.isLate = true;
+
+      // Calculate days late from due date
+      const today = new Date();
+      const daysDiff = Math.floor((today - payment.dueDate) / (1000 * 60 * 60 * 24));
+      payment.daysLate = daysDiff > 0 ? daysDiff : 1; // At least 1 day late
+
+      await payment.save();
+
+      // Apply late fee
+      await penaltyService.applyLateFee(payment, executedBy);
+
+      console.log(`Applied late fee to payment ${payment._id} for member ${payment.member._id}`);
+    }
+
+    if (unpaidPayments.length > 0) {
+      console.log(`Applied late fees to ${unpaidPayments.length} unpaid payments from cycle ${completedCycle.cycleNumber}`);
+    }
+
     // Activate next cycle
     const nextCycle = await Cycle.findOne({
       group: group._id,
       cycleNumber: group.currentCycle,
     });
-    
+
     if (nextCycle) {
       nextCycle.status = CYCLE_STATUS.ACTIVE;
       await nextCycle.save();
-      
+
       // Create pending payment records for all members for the next cycle
-      const Payment = require('../models/Payment.model');
       const members = await Member.find({ group: group._id, status: 'active' });
       const paymentDueDate = new Date(nextCycle.endDate);
-      
+      const Penalty = require('../models/Penalty.model');
+
       for (const member of members) {
         // Check if payment already exists for this member and cycle
         const existingPayment = await Payment.findOne({
           member: member._id,
           cycle: nextCycle._id,
         });
-        
+
         if (!existingPayment) {
+          // Get unpaid penalties for this member
+          const unpaidPenalties = await Penalty.find({
+            member: member._id,
+            isPaid: false,
+            isWaived: false,
+          });
+
+          // Calculate total unpaid penalty amount
+          const totalUnpaidPenalties = unpaidPenalties.reduce((sum, penalty) => sum + penalty.amount, 0);
+
+          // Payment amount = monthly contribution + unpaid penalties
+          const paymentAmount = Math.round(group.monthlyContribution + totalUnpaidPenalties);
+
           await Payment.create({
             group: group._id,
             member: member._id,
             cycle: nextCycle._id,
             cycleNumber: nextCycle.cycleNumber,
-            amount: Math.round(group.monthlyContribution),
+            amount: paymentAmount,
             currency: group.currency,
             paymentMode: 'upi',
             status: 'pending',
             dueDate: paymentDueDate,
           });
+
+          // Log if penalties were added
+          if (totalUnpaidPenalties > 0) {
+            console.log(`Member ${member._id}: Payment amount ₹${paymentAmount} (₹${group.monthlyContribution} + ₹${totalUnpaidPenalties} penalties)`);
+          }
         }
       }
-      
+
       // Update the next cycle's payment counts after creating payments
       await nextCycle.updatePaymentCounts();
     }
@@ -378,7 +433,7 @@ const executePayout = async (payoutData) => {
     group.status = 'completed';
     group.completedAt = new Date();
   }
-  
+
   await group.save();
 
   // Log action

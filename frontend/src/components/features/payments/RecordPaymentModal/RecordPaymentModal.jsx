@@ -94,15 +94,66 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
       // Fetch group details to get organizer UPI and monthly contribution
       const groupResponse = await api.get(`/groups/${selectedGroupId}`);
       const group = groupResponse.data?.group;
-      
-      // Auto-fill the amount with group's monthly contribution
-      if (group?.monthlyContribution) {
-        setFormData(prev => ({ 
-          ...prev, 
-          amount: Math.round(group.monthlyContribution).toString() 
-        }));
+
+      console.log('=== FETCHING PAYMENT AMOUNT ===');
+      console.log('Active Cycle:', activeCycle);
+      console.log('Selected Group ID:', selectedGroupId);
+      console.log('Monthly Contribution from Group:', group?.monthlyContribution);
+
+      // Fetch the actual payment record for this member in the active cycle
+      // This will include any penalties added to the base amount
+      if (activeCycle?._id) {
+        try {
+          console.log('Fetching member dashboard for group:', selectedGroupId);
+          const memberDashboard = await api.get(`/dashboard/member/${selectedGroupId}`);
+          console.log('Member Dashboard Response:', memberDashboard.data);
+
+          const financials = memberDashboard.data?.financials;
+          console.log('Financials:', financials);
+          console.log('Unpaid Penalties from Financials:', financials?.unpaidPenalties);
+
+          // Use unpaid penalties from financials (only unpaid penalties for THIS member)
+          const monthlyContribution = group?.monthlyContribution || 0;
+          const unpaidPenalties = financials?.unpaidPenalties || 0;
+          const totalAmount = monthlyContribution + unpaidPenalties;
+
+          const amountToSet = Math.round(totalAmount).toString();
+          console.log('Monthly Contribution:', monthlyContribution);
+          console.log('Unpaid Penalties (from financials):', unpaidPenalties);
+          console.log('Total Amount (Contribution + Unpaid Penalties):', totalAmount);
+          console.log('Setting amount to:', amountToSet);
+
+          setFormData(prev => {
+            const updated = {
+              ...prev,
+              amount: amountToSet
+            };
+            console.log('Updated formData:', updated);
+            return updated;
+          });
+        } catch (err) {
+          console.error('Failed to fetch payment details:', err);
+          console.error('Error details:', err.response?.data);
+          // Fallback to monthly contribution on error
+          if (group?.monthlyContribution) {
+            console.log('Error occurred, falling back to monthly contribution');
+            setFormData(prev => ({
+              ...prev,
+              amount: Math.round(group.monthlyContribution).toString()
+            }));
+          }
+        }
+      } else {
+        console.log('No active cycle, using monthly contribution');
+        if (group?.monthlyContribution) {
+          // No active cycle, use monthly contribution
+          setFormData(prev => ({
+            ...prev,
+            amount: Math.round(group.monthlyContribution).toString()
+          }));
+        }
       }
-      
+
       if (group?.organizer) {
         // Fetch organizer's UPI details
         const organizerResponse = await api.get(`/users/${group.organizer._id || group.organizer}`);

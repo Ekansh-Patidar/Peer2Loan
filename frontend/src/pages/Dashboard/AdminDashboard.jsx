@@ -98,6 +98,16 @@ const AdminDashboard = () => {
     );
   }
 
+  // Add unpaid penalties stat if available
+  if (stats.unpaidPenaltiesCount > 0) {
+    statusStats.push({
+      type: 'penalties',
+      label: 'Unpaid Penalties',
+      value: stats.unpaidPenaltiesCount,
+      subtext: `₹${stats.unpaidPenalties.toLocaleString()} total`,
+    });
+  }
+
   return (
     <DashboardLayout user={user} onLogout={logout}>
       <div className="dashboard-container">
@@ -111,8 +121,8 @@ const AdminDashboard = () => {
           </div>
           <div className="dashboard-actions">
             {group.status === 'draft' && (
-              <Button 
-                variant="success" 
+              <Button
+                variant="success"
                 onClick={async () => {
                   if (window.confirm('Are you sure you want to activate this group? This will start the first cycle and cannot be undone.')) {
                     try {

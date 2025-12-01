@@ -136,6 +136,40 @@
   margin-top: 4px;
 }
 
+.cell-penalty-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ff6b00;
+  background: #fff3e0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+  border: 1px solid #ffb74d;
+}
+
+.cell-penalty-badge svg {
+  flex-shrink: 0;
+}
+
+.contribution-cell.has-penalty {
+  position: relative;
+}
+
+.contribution-cell.has-penalty::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background: #ff6b00;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
 .contribution-heatmap-empty {
   text-align: center;
   padding: 48px 24px;

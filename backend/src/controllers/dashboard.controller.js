@@ -2,6 +2,7 @@ const Group = require('../models/Group.model');
 const Member = require('../models/Member.model');
 const Cycle = require('../models/Cycle.model');
 const Payment = require('../models/Payment.model');
+const Penalty = require('../models/Penalty.model');
 const ApiResponse = require('../utils/apiResponse');
 const asyncHandler = require('../utils/asyncHandler');
 const { CYCLE_STATUS, PAYMENT_STATUS } = require('../config/constants');
@@ -33,10 +34,31 @@ const getGroupDashboard = asyncHandler(async (req, res) => {
   // Get all members
   const members = await Member.find({ group: groupId }).populate('user', 'name email');
 
+  // Get unpaid penalties for all members in the group
+  const unpaidPenalties = await Penalty.find({
+    group: groupId,
+    isPaid: false,
+    isWaived: false,
+  }).populate('member', '_id');
+
+  // Group penalties by member
+  const penaltiesByMember = {};
+  unpaidPenalties.forEach((penalty) => {
+    const memberId = penalty.member._id.toString();
+    if (!penaltiesByMember[memberId]) {
+      penaltiesByMember[memberId] = {
+        count: 0,
+        totalAmount: 0,
+      };
+    }
+    penaltiesByMember[memberId].count += 1;
+    penaltiesByMember[memberId].totalAmount += penalty.amount;
+  });
+
   // Get payments for active cycle
   let cyclePayments = [];
   let contributionHeatmap = [];
-  
+
   if (activeCycle) {
     cyclePayments = await Payment.find({ cycle: activeCycle._id })
       .populate('member')
@@ -58,6 +80,10 @@ const getGroupDashboard = asyncHandler(async (req, res) => {
           displayStatus = payment.status;
         }
       }
+
+      // Get penalty info for this member
+      const memberPenalty = penaltiesByMember[member._id.toString()];
+
       return {
         memberId: member._id,
         memberName: member.user.name,
@@ -65,6 +91,9 @@ const getGroupDashboard = asyncHandler(async (req, res) => {
         status: displayStatus,
         paidAt: payment ? payment.paidAt : null,
         amount: payment ? Math.round(payment.amount) : 0,
+        hasPenalty: !!memberPenalty,
+        penaltyAmount: memberPenalty ? Math.round(memberPenalty.totalAmount) : 0,
+        penaltyCount: memberPenalty ? memberPenalty.count : 0,
       };
     });
   }
@@ -81,31 +110,42 @@ const getGroupDashboard = asyncHandler(async (req, res) => {
 
   // Calculate alerts
   const alerts = [];
-  
+
   if (activeCycle) {
     const pendingCount = activeCycle.pendingCount;
     const lateCount = activeCycle.lateCount;
-    
+
     if (pendingCount > 0) {
       alerts.push({
         type: 'warning',
         message: `${pendingCount} member(s) have pending payments`,
       });
     }
-    
+
     if (lateCount > 0) {
       alerts.push({
         type: 'error',
         message: `${lateCount} member(s) have late payments`,
       });
     }
-    
+
     if (activeCycle.isReadyForPayout && !activeCycle.isPayoutCompleted) {
       alerts.push({
         type: 'success',
         message: `Cycle ${activeCycle.cycleNumber} is ready for payout`,
       });
     }
+  }
+
+  // Add alert for unpaid penalties
+  const membersWithPenalties = Object.keys(penaltiesByMember).length;
+  const totalUnpaidPenaltyAmount = unpaidPenalties.reduce((sum, p) => sum + p.amount, 0);
+
+  if (membersWithPenalties > 0) {
+    alerts.push({
+      type: 'warning',
+      message: `${membersWithPenalties} member(s) have unpaid penalties totaling ₹${Math.round(totalUnpaidPenaltyAmount).toLocaleString()}`,
+    });
   }
 
   const dashboard = {
@@ -141,6 +181,8 @@ const getGroupDashboard = asyncHandler(async (req, res) => {
       totalCollected: Math.round(group.stats.totalCollected),
       totalDisbursed: Math.round(group.stats.totalDisbursed),
       totalPenalties: Math.round(group.stats.totalPenalties),
+      unpaidPenalties: Math.round(totalUnpaidPenaltyAmount),
+      unpaidPenaltiesCount: unpaidPenalties.length,
       completedCycles: group.stats.completedCycles,
     },
     upcomingCycles: upcomingCycles.map((c) => ({
@@ -179,6 +221,15 @@ const getMemberDashboard = asyncHandler(async (req, res) => {
     .populate('cycle', 'cycleNumber startDate endDate')
     .sort({ createdAt: -1 })
     .limit(10);
+
+  // Get penalties for this member
+  const allPenalties = await Penalty.find({ member: member._id })
+    .populate('cycle', 'cycleNumber')
+    .sort({ createdAt: -1 });
+
+  // Separate paid and unpaid penalties
+  const unpaidPenalties = allPenalties.filter(p => !p.isPaid && !p.isWaived);
+  const totalUnpaidPenaltyAmount = unpaidPenalties.reduce((sum, p) => sum + p.amount, 0);
 
   // Get upcoming turn
   const upcomingTurn = await Cycle.findOne({
@@ -223,7 +274,8 @@ const getMemberDashboard = asyncHandler(async (req, res) => {
       totalContributed: Math.round(member.totalContributed),
       payoutReceived: Math.round(member.payoutAmount),
       netPosition: Math.round(netPosition),
-      totalPenalties: member.totalPenalties,
+      totalPenalties: Math.round(member.totalPenalties),
+      unpaidPenalties: Math.round(totalUnpaidPenaltyAmount),
       missedPayments: member.missedPayments,
       latePayments: member.latePayments,
     },
@@ -237,9 +289,13 @@ const getMemberDashboard = asyncHandler(async (req, res) => {
       amount: currentCyclePayment.amount,
       paidAt: currentCyclePayment.paidAt,
       dueDate: currentCyclePayment.dueDate,
+      baseContribution: Math.round(member.group.monthlyContribution),
+      includedPenalties: Math.round(currentCyclePayment.amount - member.group.monthlyContribution),
     } : activeCycle ? {
       status: PAYMENT_STATUS.PENDING,
       dueDate: new Date(activeCycle.startDate).setDate(member.group.paymentWindow.endDay),
+      baseContribution: Math.round(member.group.monthlyContribution),
+      includedPenalties: 0,
     } : null,
     recentPayments: payments.map((p) => ({
       cycleNumber: p.cycle.cycleNumber,
@@ -248,6 +304,15 @@ const getMemberDashboard = asyncHandler(async (req, res) => {
       paidAt: p.paidAt,
       isLate: p.isLate,
       lateFee: p.lateFee,
+    })),
+    unpaidPenalties: unpaidPenalties.map((p) => ({
+      id: p._id,
+      type: p.type,
+      amount: Math.round(p.amount),
+      reason: p.reason,
+      cycleNumber: p.cycle.cycleNumber,
+      daysLate: p.daysLate,
+      appliedAt: p.createdAt,
     })),
   };
 
@@ -264,7 +329,7 @@ const getOverviewDashboard = asyncHandler(async (req, res) => {
   const { MEMBER_STATUS } = require('../config/constants');
 
   // Get only active member records for user (not invited)
-  const memberRecords = await Member.find({ 
+  const memberRecords = await Member.find({
     user: userId,
     status: MEMBER_STATUS.ACTIVE
   })
