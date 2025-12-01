@@ -6,14 +6,15 @@
   box-shadow: var(--shadow-sm);
   overflow: hidden;
   transition: all var(--transition-base);
+  border: 1px solid rgba(9, 30, 66, 0.08);
+  /* Subtle border for definition */
 }
 
-.card-default {
-  border: 1px solid var(--gray-200);
-}
+
 
 .card-elevated {
   box-shadow: var(--shadow-md);
+  border-color: transparent;
 }
 
 .card-outlined {
@@ -21,8 +22,9 @@
 }
 
 .card-hoverable:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-4px);
+  border-color: transparent;
 }
 
 .card-clickable {

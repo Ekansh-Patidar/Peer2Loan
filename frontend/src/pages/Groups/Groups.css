@@ -2,12 +2,13 @@
 .groups-dashboard-container {
   max-width: 100%;
   margin: 0 auto;
-  padding: 0;
+  padding: 24px;
+  /* Added padding to prevent shadow clipping */
   display: flex;
   flex-direction: column;
   gap: 24px;
   box-sizing: border-box;
-  overflow-x: hidden;
+  position: relative;
 }
 
 /* Groups Dashboard Header */
