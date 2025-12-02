@@ -39,10 +39,15 @@ const initiatePayout = async (payoutData) => {
     throw ApiError.conflict('Payout has already been initiated for this cycle');
   }
 
-  // Use provided amount or collected amount from cycle
+  // Payout amount = Pot amount (monthlyContribution * memberCount) regardless of how many paid
+  // This ensures beneficiary always gets the full pot amount
+  const group = cycle.group;
+  const potAmount = group.monthlyContribution * group.memberCount;
+  
+  // Use provided amount or pot amount (NOT collected amount)
   const cleanAmount = amount ? String(amount).replace(/[^0-9]/g, '') : null;
-  const payoutAmount = cleanAmount ? parseInt(cleanAmount, 10) : Math.round(cycle.collectedAmount);
-  console.log('Payout Service - received:', amount, 'parsed:', payoutAmount);
+  const payoutAmount = cleanAmount ? parseInt(cleanAmount, 10) : Math.round(potAmount);
+  console.log('Payout Service - pot amount:', potAmount, 'received:', amount, 'final:', payoutAmount);
 
   if (!payout) {
     // Create new payout in pending_approval status
@@ -385,17 +390,17 @@ const executePayout = async (payoutData) => {
       const paymentDueDate = new Date(nextCycle.endDate);
       const Penalty = require('../models/Penalty.model');
 
-      for (const member of members) {
+      for (const memberItem of members) {
         // Check if payment already exists for this member and cycle
         const existingPayment = await Payment.findOne({
-          member: member._id,
+          member: memberItem._id,
           cycle: nextCycle._id,
         });
 
         if (!existingPayment) {
           // Get unpaid penalties for this member
           const unpaidPenalties = await Penalty.find({
-            member: member._id,
+            member: memberItem._id,
             isPaid: false,
             isWaived: false,
           });
@@ -403,12 +408,23 @@ const executePayout = async (payoutData) => {
           // Calculate total unpaid penalty amount
           const totalUnpaidPenalties = unpaidPenalties.reduce((sum, penalty) => sum + penalty.amount, 0);
 
-          // Payment amount = monthly contribution + unpaid penalties
-          const paymentAmount = Math.round(group.monthlyContribution + totalUnpaidPenalties);
+          // Get unpaid previous payments (late payments that weren't paid)
+          const unpaidPreviousPayments = await Payment.find({
+            member: memberItem._id,
+            group: group._id,
+            status: { $in: ['late', 'pending'] },
+            cycle: { $ne: nextCycle._id }
+          });
+
+          // Calculate total unpaid previous payment amounts
+          const totalUnpaidPreviousAmount = unpaidPreviousPayments.reduce((sum, p) => sum + p.amount, 0);
+
+          // Payment amount = monthly contribution + unpaid penalties + unpaid previous amounts
+          const paymentAmount = Math.round(group.monthlyContribution + totalUnpaidPenalties + totalUnpaidPreviousAmount);
 
           await Payment.create({
             group: group._id,
-            member: member._id,
+            member: memberItem._id,
             cycle: nextCycle._id,
             cycleNumber: nextCycle.cycleNumber,
             amount: paymentAmount,
@@ -418,9 +434,9 @@ const executePayout = async (payoutData) => {
             dueDate: paymentDueDate,
           });
 
-          // Log if penalties were added
-          if (totalUnpaidPenalties > 0) {
-            console.log(`Member ${member._id}: Payment amount ₹${paymentAmount} (₹${group.monthlyContribution} + ₹${totalUnpaidPenalties} penalties)`);
+          // Log if extra amounts were added
+          if (totalUnpaidPenalties > 0 || totalUnpaidPreviousAmount > 0) {
+            console.log(`Member ${memberItem._id}: Payment amount ₹${paymentAmount} (₹${group.monthlyContribution} contribution + ₹${totalUnpaidPenalties} penalties + ₹${totalUnpaidPreviousAmount} unpaid previous)`);
           }
         }
       }
@@ -636,7 +652,18 @@ const completePayout = async (payoutId, completionData) => {
             isWaived: false,
           });
           const totalUnpaidPenalties = unpaidPenalties.reduce((sum, penalty) => sum + penalty.amount, 0);
-          const paymentAmount = Math.round(group.monthlyContribution + totalUnpaidPenalties);
+
+          // Get unpaid previous payments (late payments that weren't paid)
+          const unpaidPreviousPayments = await Payment.find({
+            member: memberItem._id,
+            group: group._id,
+            status: { $in: ['late', 'pending'] },
+            cycle: { $ne: nextCycle._id }
+          });
+          const totalUnpaidPreviousAmount = unpaidPreviousPayments.reduce((sum, p) => sum + p.amount, 0);
+
+          // Payment amount = monthly contribution + unpaid penalties + unpaid previous amounts
+          const paymentAmount = Math.round(group.monthlyContribution + totalUnpaidPenalties + totalUnpaidPreviousAmount);
 
           await Payment.create({
             group: group._id,
@@ -649,6 +676,10 @@ const completePayout = async (payoutId, completionData) => {
             status: 'pending',
             dueDate: paymentDueDate,
           });
+
+          if (totalUnpaidPenalties > 0 || totalUnpaidPreviousAmount > 0) {
+            console.log(`Member ${memberItem._id}: Payment ₹${paymentAmount} (₹${group.monthlyContribution} + ₹${totalUnpaidPenalties} penalties + ₹${totalUnpaidPreviousAmount} unpaid)`);
+          }
         }
       }
 

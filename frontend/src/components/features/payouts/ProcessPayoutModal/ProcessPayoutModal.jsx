@@ -7,15 +7,20 @@ import './ProcessPayoutModal.css';
  * ProcessPayoutModal - Admin initiates payout (sends to pending_approval)
  */
 const ProcessPayoutModal = ({ isOpen, onClose, cycle, group, onSuccess }) => {
-  const [amount, setAmount] = useState(cycle?.collectedAmount || 0);
+  // Pot amount = monthlyContribution * memberCount (full amount regardless of who paid)
+  const potAmount = group ? group.monthlyContribution * group.memberCount : (cycle?.collectedAmount || 0);
+  const [amount, setAmount] = useState(potAmount);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (cycle) {
+    if (group) {
+      // Always use pot amount (full amount) not collected amount
+      setAmount(group.monthlyContribution * group.memberCount);
+    } else if (cycle) {
       setAmount(cycle.collectedAmount || 0);
     }
-  }, [cycle]);
+  }, [cycle, group]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -108,9 +113,30 @@ const ProcessPayoutModal = ({ isOpen, onClose, cycle, group, onSuccess }) => {
                   <span className="value">{cycle.beneficiary}</span>
                 </div>
                 <div>
-                  <span className="label">Collected Amount:</span>
+                  <span className="label">Pot Amount (Full):</span>
+                  <span className="value" style={{ color: '#10b981', fontWeight: '600' }}>
+                    ₹{(group ? group.monthlyContribution * group.memberCount : cycle.collectedAmount)?.toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="label">Collected So Far:</span>
                   <span className="value">₹{cycle.collectedAmount?.toLocaleString()}</span>
                 </div>
+                <div>
+                  <span className="label">Members Paid:</span>
+                  <span className="value">{cycle.paidCount || 0}/{cycle.totalMembers || group?.memberCount}</span>
+                </div>
+              </div>
+              <div style={{ 
+                background: '#fef3c7', 
+                border: '1px solid #f59e0b', 
+                borderRadius: '6px', 
+                padding: '10px', 
+                marginTop: '12px',
+                fontSize: '13px',
+                color: '#92400e'
+              }}>
+                <strong>Note:</strong> Beneficiary will receive the full pot amount (₹{(group ? group.monthlyContribution * group.memberCount : cycle.collectedAmount)?.toLocaleString()}) regardless of how many members have paid. Members who haven't paid will have late fees applied.
               </div>
             </div>
           )}

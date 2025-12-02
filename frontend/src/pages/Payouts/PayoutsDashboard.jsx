@@ -112,6 +112,9 @@ const PayoutsDashboard = () => {
               // Only consider "All Paid" if there are members and all have paid
               const isFullyPaid = totalMembers > 0 && paidCount >= totalMembers;
               
+              // Pot amount = monthlyContribution * memberCount (full amount regardless of who paid)
+              const potAmount = group.monthlyContribution * group.memberCount;
+              
               readyCycles.push({
                 ...activeCycle,
                 groupName: group.name,
@@ -120,6 +123,8 @@ const PayoutsDashboard = () => {
                 totalMembers: totalMembers || group.memberCount,
                 paidCount: paidCount,
                 pendingCount: pendingCount,
+                potAmount: potAmount,
+                monthlyContribution: group.monthlyContribution,
               });
             }
           }
@@ -515,8 +520,11 @@ const PayoutsDashboard = () => {
                     <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>
                       Beneficiary: <span style={{ fontWeight: '600', color: '#1a1a1a' }}>{cycle.beneficiary}</span>
                     </div>
-                    <div className="payment-card-amount">₹{cycle.collectedAmount?.toLocaleString()}</div>
-                    <div style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
+                    <div className="payment-card-amount">₹{cycle.potAmount?.toLocaleString() || cycle.collectedAmount?.toLocaleString()}</div>
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                      Collected: ₹{cycle.collectedAmount?.toLocaleString()} of ₹{cycle.potAmount?.toLocaleString() || cycle.collectedAmount?.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
                       {cycle.paidCount || 0}/{cycle.totalMembers || (cycle.paidCount + cycle.pendingCount)} members paid
                     </div>
                   </div>
