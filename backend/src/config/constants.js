@@ -76,6 +76,7 @@ module.exports = {
     BANK_TRANSFER: 'bank_transfer',
     CASH: 'cash',
     CHEQUE: 'cheque',
+    RAZORPAY: 'razorpay',
     OTHER: 'other'
   },
 

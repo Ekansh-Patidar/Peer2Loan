@@ -528,10 +528,16 @@ const getGroupPayouts = async (groupId) => {
 };
 
 /**
- * Complete payout
+ * Complete payout (called after Razorpay payment success)
  */
 const completePayout = async (payoutId, completionData) => {
-  const payout = await Payout.findById(payoutId);
+  const payout = await Payout.findById(payoutId)
+    .populate({
+      path: 'beneficiary',
+      populate: { path: 'user', select: 'name email phone' }
+    })
+    .populate('group')
+    .populate('cycle');
 
   if (!payout) {
     throw ApiError.notFound('Payout not found');
@@ -541,7 +547,161 @@ const completePayout = async (payoutId, completionData) => {
     throw ApiError.badRequest('Payout is already completed');
   }
 
-  await payout.markAsCompleted(completionData);
+  // Update payout with transaction details
+  payout.status = PAYOUT_STATUS.COMPLETED;
+  payout.completedAt = new Date();
+  payout.processedAt = new Date();
+  if (completionData) {
+    payout.transferReference = completionData.reference || completionData.transactionId;
+    payout.transactionId = completionData.transactionId;
+  }
+  await payout.save();
+
+  // Update cycle
+  const cycleToUpdate = await Cycle.findById(payout.cycle._id || payout.cycle);
+  await cycleToUpdate.completePayout(
+    {
+      amount: payout.amount,
+      reference: payout.transferReference,
+    },
+    payout.processedBy || payout.initiatedBy
+  );
+
+  // Update member
+  const member = await Member.findById(payout.beneficiary._id || payout.beneficiary);
+  member.hasReceivedPayout = true;
+  member.payoutReceivedAt = new Date();
+  member.payoutAmount = Math.round(payout.amount);
+  await member.save();
+
+  // Update group stats and move to next cycle
+  const group = await Group.findById(payout.group._id || payout.group);
+  group.stats.totalDisbursed = Math.round(group.stats.totalDisbursed) + Math.round(payout.amount);
+  group.stats.completedCycles += 1;
+
+  // Get the completed cycle to apply late fees
+  const completedCycle = await Cycle.findById(payout.cycle._id || payout.cycle);
+
+  if (group.currentCycle < group.duration) {
+    group.currentCycle += 1;
+
+    // Apply late fees to unpaid payments from the cycle that just ended
+    const Payment = require('../models/Payment.model');
+    const penaltyService = require('./penalty.service');
+    const { PAYMENT_STATUS } = require('../config/constants');
+
+    // Find all pending payments from the completed cycle
+    const unpaidPayments = await Payment.find({
+      cycle: completedCycle._id,
+      status: { $in: [PAYMENT_STATUS.PENDING, 'under_review'] },
+    }).populate('member').populate('group');
+
+    // Apply late fees immediately
+    for (const payment of unpaidPayments) {
+      payment.status = PAYMENT_STATUS.LATE;
+      payment.isLate = true;
+      const today = new Date();
+      const daysDiff = Math.floor((today - payment.dueDate) / (1000 * 60 * 60 * 24));
+      payment.daysLate = daysDiff > 0 ? daysDiff : 1;
+      await payment.save();
+      await penaltyService.applyLateFee(payment, payout.processedBy || payout.initiatedBy);
+    }
+
+    // Activate next cycle
+    const nextCycle = await Cycle.findOne({
+      group: group._id,
+      cycleNumber: group.currentCycle,
+    });
+
+    if (nextCycle) {
+      nextCycle.status = CYCLE_STATUS.ACTIVE;
+      await nextCycle.save();
+
+      // Create pending payment records for all members for the next cycle
+      const members = await Member.find({ group: group._id, status: 'active' });
+      const paymentDueDate = new Date(nextCycle.endDate);
+      const Penalty = require('../models/Penalty.model');
+      const Payment = require('../models/Payment.model');
+
+      for (const memberItem of members) {
+        const existingPayment = await Payment.findOne({
+          member: memberItem._id,
+          cycle: nextCycle._id,
+        });
+
+        if (!existingPayment) {
+          const unpaidPenalties = await Penalty.find({
+            member: memberItem._id,
+            isPaid: false,
+            isWaived: false,
+          });
+          const totalUnpaidPenalties = unpaidPenalties.reduce((sum, penalty) => sum + penalty.amount, 0);
+          const paymentAmount = Math.round(group.monthlyContribution + totalUnpaidPenalties);
+
+          await Payment.create({
+            group: group._id,
+            member: memberItem._id,
+            cycle: nextCycle._id,
+            cycleNumber: nextCycle.cycleNumber,
+            amount: paymentAmount,
+            currency: group.currency,
+            paymentMode: 'upi',
+            status: 'pending',
+            dueDate: paymentDueDate,
+          });
+        }
+      }
+
+      await nextCycle.updatePaymentCounts();
+    }
+  } else {
+    group.status = 'completed';
+    group.completedAt = new Date();
+  }
+
+  await group.save();
+
+  // Log action
+  await AuditLog.logAction({
+    groupId: group._id,
+    action: AUDIT_ACTIONS.PAYOUT_EXECUTED,
+    description: `Payout of ₹${payout.amount} completed for cycle ${cycleToUpdate.cycleNumber}`,
+    userId: payout.processedBy || payout.initiatedBy,
+    memberId: payout.beneficiary._id || payout.beneficiary,
+    cycleId: payout.cycle._id || payout.cycle,
+  });
+
+  // Send notification to beneficiary
+  try {
+    const beneficiaryMember = await Member.findById(payout.beneficiary._id || payout.beneficiary)
+      .populate('user', 'name email phone');
+    if (beneficiaryMember && beneficiaryMember.user) {
+      await Notification.createNotification({
+        user: beneficiaryMember.user._id,
+        type: NOTIFICATION_TYPES.PAYOUT_COMPLETED,
+        title: 'Payout Completed! 🎉',
+        message: `Your payout of ₹${payout.amount.toLocaleString()} from ${group.name} has been completed.`,
+        group: group._id,
+        payout: payout._id,
+        actionUrl: '/payouts',
+        metadata: {
+          cycleNumber: cycleToUpdate.cycleNumber,
+          amount: payout.amount,
+          transactionId: payout.transactionId
+        }
+      });
+
+      if (beneficiaryMember.user.email) {
+        await notificationService.sendPayoutCompletedNotification(
+          beneficiaryMember.user,
+          group,
+          payout
+        );
+      }
+    }
+  } catch (err) {
+    console.error('Failed to send payout completed notification:', err);
+  }
 
   return payout;
 };
@@ -550,13 +710,51 @@ const completePayout = async (payoutId, completionData) => {
  * Mark payout as failed
  */
 const markPayoutFailed = async (payoutId, reason) => {
-  const payout = await Payout.findById(payoutId);
+  const payout = await Payout.findById(payoutId)
+    .populate({
+      path: 'beneficiary',
+      populate: { path: 'user', select: 'name email phone' }
+    })
+    .populate('group')
+    .populate('cycle');
 
   if (!payout) {
     throw ApiError.notFound('Payout not found');
   }
 
   await payout.markAsFailed(reason);
+
+  // Log action
+  await AuditLog.logAction({
+    groupId: payout.group._id,
+    action: 'PAYOUT_FAILED',
+    description: `Payout of ₹${payout.amount} failed for cycle ${payout.cycle?.cycleNumber}. Reason: ${reason}`,
+    memberId: payout.beneficiary._id,
+    cycleId: payout.cycle?._id,
+  });
+
+  // Notify admin about the failure
+  try {
+    const group = await Group.findById(payout.group._id).populate('organizer');
+    if (group && group.organizer) {
+      await Notification.createNotification({
+        user: group.organizer._id,
+        type: 'PAYOUT_FAILED',
+        title: 'Payout Failed',
+        message: `Payout of ₹${payout.amount.toLocaleString()} to ${payout.beneficiary?.user?.name} failed. Please retry.`,
+        group: group._id,
+        payout: payout._id,
+        actionUrl: '/payouts',
+        metadata: {
+          cycleNumber: payout.cycle?.cycleNumber,
+          amount: payout.amount,
+          reason: reason
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Failed to send payout failed notification:', err);
+  }
 
   return payout;
 };

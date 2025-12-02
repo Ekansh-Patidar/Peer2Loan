@@ -117,6 +117,18 @@ const payoutService = {
   },
 
   /**
+   * Mark payout as failed
+   */
+  markPayoutFailed: async (payoutId, reason) => {
+    try {
+      const response = await api.put(`/payouts/${payoutId}/fail`, { reason });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  /**
    * Cancel payout
    */
   cancelPayout: async (payoutId, reason) => {

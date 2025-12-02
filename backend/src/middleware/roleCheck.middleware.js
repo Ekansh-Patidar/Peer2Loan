@@ -19,6 +19,15 @@ const isGroupOrganizer = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // If no groupId but we have payoutId, get groupId from payout
+  if (!groupId && req.params.payoutId) {
+    const Payout = require('../models/Payout.model');
+    const payout = await Payout.findById(req.params.payoutId);
+    if (payout) {
+      groupId = payout.group.toString();
+    }
+  }
+
   if (!groupId) {
     throw ApiError.badRequest('Group ID is required');
   }

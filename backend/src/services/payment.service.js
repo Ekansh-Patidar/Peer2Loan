@@ -497,6 +497,83 @@ const markPaymentLate = async (paymentId, adminId) => {
   return payment;
 };
 
+/**
+ * Update payment (for Razorpay callback)
+ */
+const updatePayment = async (paymentId, updateData, userId) => {
+  const payment = await Payment.findById(paymentId);
+
+  if (!payment) {
+    throw ApiError.notFound('Payment not found');
+  }
+
+  // Only allow updating pending or rejected payments
+  if (payment.status !== PAYMENT_STATUS.PENDING && payment.status !== PAYMENT_STATUS.REJECTED) {
+    throw ApiError.badRequest('Can only update pending or rejected payments');
+  }
+
+  // Update allowed fields
+  const allowedFields = ['status', 'razorpayPaymentId', 'razorpayOrderId', 'paidAt', 'paymentMode', 'transactionId'];
+  allowedFields.forEach(field => {
+    if (updateData[field] !== undefined) {
+      payment[field] = updateData[field];
+    }
+  });
+
+  // If status is being set to paid, update to under_review for admin approval
+  if (updateData.status === 'paid') {
+    payment.status = PAYMENT_STATUS.UNDER_REVIEW;
+    payment.paidAt = updateData.paidAt || new Date();
+  }
+
+  await payment.save();
+
+  // Update cycle statistics
+  const cycle = await Cycle.findById(payment.cycle);
+  if (cycle) {
+    await cycle.updatePaymentCounts();
+  }
+
+  // Log action
+  await AuditLog.logAction({
+    groupId: payment.group,
+    action: AUDIT_ACTIONS.PAYMENT_RECORDED,
+    description: `Payment updated via Razorpay for cycle ${payment.cycleNumber}`,
+    userId,
+    memberId: payment.member,
+    paymentId: payment._id,
+  });
+
+  // Send notification to admin/organizer for approval (if payment was made via Razorpay)
+  if (updateData.status === 'paid' && updateData.razorpayPaymentId) {
+    try {
+      const group = await Group.findById(payment.group).populate('organizer', 'name email');
+      const member = await Member.findById(payment.member).populate('user', 'name');
+
+      if (group && group.organizer) {
+        await Notification.createNotification({
+          user: group.organizer._id,
+          type: NOTIFICATION_TYPES.PAYMENT_PENDING_APPROVAL,
+          title: 'Payment Pending Approval',
+          message: `${member?.user?.name || 'A member'} has paid ₹${payment.amount.toLocaleString()} via Razorpay for ${group.name} - Cycle ${payment.cycleNumber}. Transaction ID: ${updateData.razorpayPaymentId}. Please review and approve.`,
+          group: payment.group,
+          payment: payment._id,
+          actionUrl: '/payments',
+          metadata: {
+            cycleNumber: payment.cycleNumber,
+            amount: payment.amount,
+            transactionId: updateData.razorpayPaymentId
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Failed to send payment approval notification:', err);
+    }
+  }
+
+  return payment.populate('member', 'user turnNumber');
+};
+
 module.exports = {
   recordPayment,
   getPaymentById,
@@ -507,4 +584,5 @@ module.exports = {
   confirmPayment,
   rejectPayment,
   markPaymentLate,
+  updatePayment,
 };

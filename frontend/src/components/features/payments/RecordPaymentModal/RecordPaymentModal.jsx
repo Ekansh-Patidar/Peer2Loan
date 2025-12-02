@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Alert, Loader } from '../../../common';
 import UpiPayment from '../UpiPayment/UpiPayment';
 import api from '../../../../services/api';
+import razorpayService from '../../../../services/razorpayService';
 import './RecordPaymentModal.css';
 
 const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSuccess }) => {
@@ -413,22 +414,45 @@ const RecordPaymentModal = ({ isOpen, onClose, groupId, cycleId, amount, onSucce
               />
             </div>
 
-            {formData.groupId && formData.cycleId && formData.amount && organizerUpi && (
-              <div className="upi-quick-pay">
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={handleUpiPayment}
-                  style={{ width: '100%', marginBottom: '16px' }}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: '20px', height: '20px', marginRight: '8px' }}>
-                    <rect x="2" y="5" width="20" height="14" rx="2" />
-                    <line x1="2" y1="10" x2="22" y2="10" />
-                  </svg>
-                  Pay ₹{formData.amount} with UPI
-                </Button>
+            {formData.groupId && formData.cycleId && formData.amount && (
+              <div className="payment-options-section">
+                {/* Razorpay Payment - All Options */}
+                <div className="razorpay-pay-section" style={{ marginBottom: '16px' }}>
+                  <Button
+                    type="button"
+                    variant="success"
+                    onClick={() => {
+                      const selectedGroup = groups.find(g => g._id === formData.groupId);
+                      razorpayService.initiatePayment({
+                        amount: parseInt(formData.amount, 10),
+                        paymentId: `manual_${Date.now()}`,
+                        memberName: 'Member',
+                        description: `Payment for ${selectedGroup?.name || 'Group'} - Cycle`,
+                        type: 'payment',
+                        groupName: selectedGroup?.name || 'Group',
+                        cycleNumber: '',
+                      });
+                    }}
+                    style={{ width: '100%', background: '#10b981', borderColor: '#10b981', color: 'white' }}
+                  >
+                    Pay ₹{formData.amount} Now
+                  </Button>
+                </div>
+
+                {/* UPI Direct Payment */}
+                {organizerUpi && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleUpiPayment}
+                    style={{ width: '100%', marginBottom: '16px' }}
+                  >
+                    Pay ₹{formData.amount} with UPI App
+                  </Button>
+                )}
+
                 <div style={{ textAlign: 'center', margin: '16px 0', color: '#666', fontSize: '14px' }}>
-                  OR enter payment details manually
+                  OR enter payment details manually below
                 </div>
               </div>
             )}

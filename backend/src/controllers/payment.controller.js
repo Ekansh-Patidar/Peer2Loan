@@ -187,6 +187,25 @@ const markPaymentLate = asyncHandler(async (req, res) => {
   );
 });
 
+/**
+ * @desc    Update payment (for Razorpay callback)
+ * @route   PUT /api/v1/payments/:paymentId
+ * @access  Private
+ */
+const updatePayment = asyncHandler(async (req, res) => {
+  const payment = await paymentService.updatePayment(
+    req.params.paymentId,
+    req.body,
+    req.user._id
+  );
+
+  return ApiResponse.success(
+    res,
+    { payment },
+    'Payment updated successfully'
+  );
+});
+
 module.exports = {
   recordPayment,
   getPaymentById,
@@ -197,4 +216,5 @@ module.exports = {
   confirmPayment,
   rejectPayment,
   markPaymentLate,
+  updatePayment,
 };

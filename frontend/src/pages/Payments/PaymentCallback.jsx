@@ -1,26 +1,36 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '../../components/layout';
 import { Card, Button, Alert, Loader } from '../../components/common';
 import useAuth from '../../hooks/useAuth';
 import { usePayments } from '../../hooks/usePayments';
 import razorpayService from '../../services/razorpayService';
+import api from '../../services/api';
 
 /**
  * PaymentCallback - Handles Razorpay payment callback
+ * Flow: Pay Now → Razorpay → Auto-submit for Admin Approval
  */
 const PaymentCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, logout } = useAuth();
-  const { updatePayment, fetchMyPayments } = usePayments();
+  const { fetchMyPayments } = usePayments();
   
   const [processing, setProcessing] = useState(true);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [submittedForApproval, setSubmittedForApproval] = useState(false);
+  
+  // Ref to prevent duplicate processing
+  const hasProcessed = useRef(false);
 
   useEffect(() => {
     const processPaymentResult = async () => {
+      // Prevent duplicate processing
+      if (hasProcessed.current) return;
+      hasProcessed.current = true;
+      
       try {
         const status = searchParams.get('status');
         const paymentResult = razorpayService.getPaymentResult();
@@ -34,19 +44,20 @@ const PaymentCallback = () => {
         setResult(paymentResult);
 
         if (status === 'success' && razorpayService.verifyPayment(paymentResult)) {
-          // Update payment status in backend (skip for demo payments)
+          // Update payment status and auto-submit for admin approval
           try {
-            if (paymentResult.paymentId && !paymentResult.paymentId.startsWith('demo_')) {
-              await updatePayment(paymentResult.paymentId, {
+            if (paymentResult.paymentId && !paymentResult.paymentId.startsWith('demo_') && !paymentResult.paymentId.startsWith('manual_')) {
+              // Update existing payment with Razorpay details - this will set status to under_review
+              // Call API directly to avoid duplicate calls from context
+              await api.put(`/payments/${paymentResult.paymentId}`, {
                 status: 'paid',
                 razorpayPaymentId: paymentResult.razorpay_payment_id,
                 razorpayOrderId: paymentResult.razorpay_order_id,
                 paidAt: paymentResult.completedAt,
                 paymentMode: 'razorpay',
+                transactionId: paymentResult.razorpay_payment_id,
               });
-            } else if (paymentResult.paymentId && paymentResult.paymentId.startsWith('demo_')) {
-              // Store completed demo payment ID for the dashboard to update
-              sessionStorage.setItem('completed_demo_payment', paymentResult.paymentId);
+              setSubmittedForApproval(true);
             }
             // Refresh payments list
             await fetchMyPayments();
@@ -65,7 +76,7 @@ const PaymentCallback = () => {
     };
 
     processPaymentResult();
-  }, [searchParams, updatePayment, fetchMyPayments]);
+  }, [searchParams]);
 
   const handleGoToPayments = () => {
     razorpayService.clearPaymentResult();
@@ -111,9 +122,30 @@ const PaymentCallback = () => {
                   </svg>
                 </div>
                 <h2 style={{ color: '#2e7d32', marginBottom: '8px' }}>Payment Successful!</h2>
-                <p style={{ color: '#666', marginBottom: '24px' }}>
+                <p style={{ color: '#666', marginBottom: '16px' }}>
                   Your payment of ₹{result?.amount?.toLocaleString()} has been processed successfully.
                 </p>
+                
+                {/* Sent for Approval Notice */}
+                <div style={{
+                  background: '#fef3c7',
+                  border: '1px solid #f59e0b',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" style={{ width: '24px', height: '24px', flexShrink: 0 }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: '600', color: '#92400e', fontSize: '14px' }}>Sent for Admin Approval</div>
+                    <div style={{ color: '#a16207', fontSize: '13px' }}>Your payment has been submitted and is awaiting admin verification.</div>
+                  </div>
+                </div>
                 
                 <div style={{
                   background: '#f5f5f5',
@@ -138,6 +170,10 @@ const PaymentCallback = () => {
                     <span style={{ color: '#666', fontSize: '13px' }}>Group</span>
                     <div style={{ fontWeight: '600' }}>{result?.groupName || 'N/A'}</div>
                   </div>
+                  <div style={{ marginBottom: '12px' }}>
+                    <span style={{ color: '#666', fontSize: '13px' }}>Status</span>
+                    <div style={{ fontWeight: '600', color: '#f59e0b' }}>Under Review</div>
+                  </div>
                   <div>
                     <span style={{ color: '#666', fontSize: '13px' }}>Date & Time</span>
                     <div style={{ fontWeight: '600' }}>
@@ -146,7 +182,7 @@ const PaymentCallback = () => {
                   </div>
                 </div>
 
-                <Button variant="primary" onClick={handleGoToPayments} style={{ width: '100%' }}>
+                <Button variant="success" onClick={handleGoToPayments} style={{ width: '100%', background: '#10b981', borderColor: '#10b981', color: 'white' }}>
                   Go to Payments
                 </Button>
               </>

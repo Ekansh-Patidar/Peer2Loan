@@ -186,8 +186,8 @@ const NotificationsPage = () => {
                     </div>
                   </div>
                   <div className="invitation-actions">
-                    <Button variant="success" size="small" onClick={() => handleAccept(inv.group._id)} disabled={processingId === inv.group._id}>Accept</Button>
-                    <Button variant="outline" size="small" onClick={() => handleReject(inv.group._id, inv._id)} disabled={processingId === inv.group._id}>Reject</Button>
+                    <Button variant="success" size="small" style={{ background: '#10b981', borderColor: '#10b981', color: 'white' }} onClick={() => handleAccept(inv.group._id)} disabled={processingId === inv.group._id}>Accept</Button>
+                    <Button variant="danger" size="small" style={{ background: '#f87171', borderColor: '#f87171', color: 'white' }} onClick={() => handleReject(inv.group._id, inv._id)} disabled={processingId === inv.group._id}>Reject</Button>
                   </div>
                 </div>
               </Card>

@@ -237,14 +237,17 @@ export const PaymentProvider = ({ children }) => {
     setError(null);
     try {
       const response = await paymentService.updatePayment(paymentId, updateData);
-      const updatedPayment = response.data.payment;
+      // Handle different response structures
+      const updatedPayment = response?.data?.payment || response?.payment || response;
       
-      setPayments(prev => prev.map(p => 
-        p._id === paymentId ? updatedPayment : p
-      ));
-      
-      if (currentPayment?._id === paymentId) {
-        setCurrentPayment(updatedPayment);
+      if (updatedPayment && updatedPayment._id) {
+        setPayments(prev => prev.map(p => 
+          p._id === paymentId ? updatedPayment : p
+        ));
+        
+        if (currentPayment?._id === paymentId) {
+          setCurrentPayment(updatedPayment);
+        }
       }
       
       showNotification('Payment updated successfully!', 'success');

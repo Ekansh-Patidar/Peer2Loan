@@ -33,58 +33,13 @@ const PayoutsDashboard = () => {
   const [allPayouts, setAllPayouts] = useState([]);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-  const [demoPayouts, setDemoPayouts] = useState([]);
 
-  // Generate demo payouts for testing
-  const generateDemoPayouts = () => {
-    const demoData = [
-      {
-        _id: 'demo_payout_' + Date.now() + '_1',
-        group: { _id: 'demo_group_1', name: 'Family Savings Pool' },
-        cycle: { _id: 'demo_cycle_1', cycleNumber: 2 },
-        beneficiary: { 
-          _id: 'demo_member_1', 
-          user: { _id: 'demo_user_1', name: 'John Doe' } 
-        },
-        amount: 50000,
-        status: 'approved',
-        approvedAt: new Date().toISOString(),
-        initiatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        _id: 'demo_payout_' + Date.now() + '_2',
-        group: { _id: 'demo_group_2', name: 'Office Chit Fund' },
-        cycle: { _id: 'demo_cycle_2', cycleNumber: 4 },
-        beneficiary: { 
-          _id: 'demo_member_2', 
-          user: { _id: 'demo_user_2', name: 'Jane Smith' } 
-        },
-        amount: 100000,
-        status: 'pending_approval',
-        initiatedAt: new Date().toISOString(),
-      },
-    ];
-    setDemoPayouts(demoData);
-    setSuccessMessage('Demo payouts added! You can now test the Razorpay integration.');
-    setTimeout(() => setSuccessMessage(null), 5000);
-  };
-
-  // Handle demo payout success (update demo payout status)
-  const handleDemoPayoutSuccess = (payoutId) => {
-    setDemoPayouts(prev => prev.map(p => 
-      p._id === payoutId 
-        ? { ...p, status: 'completed', completedAt: new Date().toISOString() }
-        : p
-    ));
-  };
-
-  // Check for completed demo payout on mount (from callback)
+  // Check for completed payout on mount (from Razorpay callback)
   useEffect(() => {
-    const completedDemoPayoutId = sessionStorage.getItem('completed_demo_payout');
-    if (completedDemoPayoutId) {
-      handleDemoPayoutSuccess(completedDemoPayoutId);
-      sessionStorage.removeItem('completed_demo_payout');
+    const paymentResult = razorpayService.getPaymentResult();
+    if (paymentResult && paymentResult.status === 'success' && paymentResult.type === 'payout') {
       setSuccessMessage('Payout completed successfully! Stats have been updated.');
+      razorpayService.clearPaymentResult();
       setTimeout(() => setSuccessMessage(null), 5000);
     }
   }, []);
@@ -127,7 +82,7 @@ const PayoutsDashboard = () => {
             groupPayouts.forEach(payout => {
               if (payout.status === 'pending_approval') {
                 pendingApproval.push(payout);
-              } else if (payout.status === 'approved') {
+              } else if (payout.status === 'approved' || payout.status === 'failed') {
                 approved.push(payout);
               }
             });
@@ -243,17 +198,11 @@ const PayoutsDashboard = () => {
     );
   }
 
-  // Combine real payouts with demo payouts
-  const payoutList = [...(Array.isArray(allPayouts) ? allPayouts : []), ...demoPayouts];
+  // Payout list from API
+  const payoutList = Array.isArray(allPayouts) ? allPayouts : [];
   const filteredPayouts = payoutList.filter((payout) =>
     filterStatus === 'all' ? true : payout.status === filterStatus
   );
-  
-  // Also add demo approved payouts to the approvedPayouts list for display
-  const allApprovedPayouts = [
-    ...approvedPayouts, 
-    ...demoPayouts.filter(p => p.status === 'approved')
-  ];
 
   const getStatusBadge = (status) => {
     const colors = {
@@ -366,11 +315,12 @@ const PayoutsDashboard = () => {
         const isBeneficiary = record.beneficiary?.user?._id === user?._id || record.beneficiary?.user === user?._id;
         return (
           <div style={{ display: 'flex', gap: '8px' }}>
-            {record.status === 'approved' && isOrganizer && (
+            {(record.status === 'approved' || record.status === 'failed') && isOrganizer && (
               <>
                 <Button 
                   size="small" 
-                  variant="primary" 
+                  variant="success" 
+                  style={{ background: '#10b981', borderColor: '#10b981', color: 'white' }}
                   onClick={() => {
                     razorpayService.initiatePayment({
                       amount: record.amount,
@@ -383,9 +333,9 @@ const PayoutsDashboard = () => {
                     });
                   }}
                 >
-                  Pay via Razorpay
+                  {record.status === 'failed' ? 'Retry Payment' : 'Pay Now'}
                 </Button>
-                <Button size="small" variant="success" onClick={() => handleCompletePayout(record)}>
+                <Button size="small" variant="outline" onClick={() => handleCompletePayout(record)}>
                   Complete Payout
                 </Button>
               </>
@@ -406,13 +356,14 @@ const PayoutsDashboard = () => {
     },
   ];
 
-  // Calculate stats (including demo payouts)
+  // Calculate stats
   const stats = {
     totalPayouts: payoutList.length,
     completed: payoutList.filter((p) => p.status === 'completed').length,
     readyForPayout: cyclesReadyForPayout.length,
     pendingApproval: payoutList.filter((p) => p.status === 'pending_approval').length,
-    approved: allApprovedPayouts.length,
+    approved: payoutList.filter((p) => p.status === 'approved').length,
+    failed: payoutList.filter((p) => p.status === 'failed').length,
     totalAmount: payoutList.filter((p) => p.status === 'completed').reduce((sum, p) => sum + (p.amount || 0), 0),
   };
 
@@ -439,21 +390,7 @@ const PayoutsDashboard = () => {
         {error && <Alert type="error" closable onClose={() => setError(null)}>{error}</Alert>}
         {successMessage && <Alert type="success" closable onClose={() => setSuccessMessage(null)}>{successMessage}</Alert>}
 
-        {/* Demo Button - Always visible for testing */}
-        {demoPayouts.length === 0 && (
-          <Card>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ color: '#666', margin: 0 }}>
-                  Test Razorpay integration with demo payouts
-                </p>
-              </div>
-              <Button variant="primary" onClick={generateDemoPayouts}>
-                Add Demo Payouts
-              </Button>
-            </div>
-          </Card>
-        )}
+
 
         {/* Stats Cards */}
         <div className="payments-stats-grid">
@@ -513,6 +450,9 @@ const PayoutsDashboard = () => {
               <div className="stat-content">
                 <div className="stat-label">Approved (Ready to Complete)</div>
                 <div className="stat-value">{stats.approved}</div>
+                {stats.failed > 0 && (
+                  <div className="stat-subtext" style={{ color: '#ef4444' }}>{stats.failed} failed (retry needed)</div>
+                )}
               </div>
             </div>
           </Card>
@@ -539,7 +479,7 @@ const PayoutsDashboard = () => {
                     </div>
                   </div>
                   <div className="payment-card-footer">
-                    <Button variant="success" size="small" style={{ width: '100%' }} onClick={() => handleApprovePayout(payout)}>
+                    <Button variant="success" size="small" style={{ width: '100%', background: '#10b981', borderColor: '#10b981', color: 'white' }} onClick={() => handleApprovePayout(payout)}>
                       ✓ Approve Payout
                     </Button>
                   </div>
@@ -594,32 +534,23 @@ const PayoutsDashboard = () => {
           </Card>
         )}
 
-        {/* Demo Data Button - Show when no payouts */}
-        {payoutList.length === 0 && !loadingCycles && (
-          <Card>
-            <div style={{ textAlign: 'center', padding: '24px' }}>
-              <p style={{ color: '#666', marginBottom: '16px' }}>
-                No payouts found. Add demo payouts to test the Razorpay integration.
-              </p>
-              <Button variant="primary" onClick={generateDemoPayouts}>
-                Add Demo Payouts
-              </Button>
-            </div>
-          </Card>
-        )}
 
-        {/* Approved Payouts - Ready to Complete (Admin only or demo) */}
-        {allApprovedPayouts.length > 0 && (
-          <Card title="✅ Approved Payouts - Ready to Complete" subtitle="Beneficiaries have approved. Complete the transfer and upload proof.">
+
+        {/* Approved & Failed Payouts - Ready to Complete (Admin only) */}
+        {approvedPayouts.length > 0 && (
+          <Card title="✅ Approved & Failed Payouts - Action Required" subtitle="Complete the transfer or retry failed payouts.">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-              {allApprovedPayouts.map((payout) => (
-                <div key={payout._id} className="payment-card" style={{ border: '2px solid #10b981', background: '#ecfdf5' }}>
+              {approvedPayouts.map((payout) => (
+                <div key={payout._id} className="payment-card" style={{ 
+                  border: payout.status === 'failed' ? '2px solid #ef4444' : '2px solid #10b981', 
+                  background: payout.status === 'failed' ? '#fef2f2' : '#ecfdf5' 
+                }}>
                   <div className="payment-card-header">
                     <div>
                       <div className="payment-card-group">{payout.group?.name}</div>
                       <div className="payment-card-cycle">Cycle {payout.cycle?.cycleNumber}</div>
                     </div>
-                    {getStatusBadge('approved')}
+                    {getStatusBadge(payout.status)}
                   </div>
                   <div className="payment-card-body">
                     <div style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>
@@ -627,14 +558,27 @@ const PayoutsDashboard = () => {
                     </div>
                     <div className="payment-card-amount">₹{payout.amount?.toLocaleString()}</div>
                     <div style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
-                      Approved: {new Date(payout.approvedAt).toLocaleDateString()}
+                      {payout.status === 'failed' ? 'Failed' : 'Approved'}: {new Date(payout.status === 'failed' ? payout.lastRetryAt || payout.updatedAt : payout.approvedAt).toLocaleDateString()}
                     </div>
+                    {payout.status === 'failed' && payout.failureReason && (
+                      <div style={{ 
+                        background: '#fef2f2', 
+                        border: '1px solid #fecaca', 
+                        borderRadius: '6px', 
+                        padding: '8px', 
+                        marginTop: '8px',
+                        fontSize: '12px',
+                        color: '#dc2626'
+                      }}>
+                        <strong>Failure Reason:</strong> {payout.failureReason}
+                      </div>
+                    )}
                   </div>
                   <div className="payment-card-footer" style={{ display: 'flex', gap: '8px' }}>
                     <Button 
-                      variant="primary" 
+                      variant="success" 
                       size="small" 
-                      style={{ flex: 1 }} 
+                      style={{ flex: 1, background: '#10b981', borderColor: '#10b981', color: 'white' }} 
                       onClick={() => {
                         razorpayService.initiatePayment({
                           amount: payout.amount,
@@ -647,9 +591,9 @@ const PayoutsDashboard = () => {
                         });
                       }}
                     >
-                      Pay via Razorpay
+                      {payout.status === 'failed' ? 'Retry Payment' : 'Pay Now'}
                     </Button>
-                    <Button variant="success" size="small" style={{ flex: 1 }} onClick={() => handleCompletePayout(payout)}>
+                    <Button variant="outline" size="small" style={{ flex: 1 }} onClick={() => handleCompletePayout(payout)}>
                       Complete Payout
                     </Button>
                   </div>

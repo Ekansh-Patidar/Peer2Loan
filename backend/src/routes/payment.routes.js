@@ -35,6 +35,9 @@ router.get('/member/:memberId', paymentController.getMemberPayments);
 router.get('/group/:groupId', isGroupMember, paymentController.getGroupPayments);
 router.get('/:paymentId', paymentIdValidator, validate, paymentController.getPaymentById);
 
+// Update payment (for Razorpay callback)
+router.put('/:paymentId', paymentIdValidator, validate, paymentController.updatePayment);
+
 // Admin actions
 router.put('/:paymentId/confirm', confirmPaymentValidator, validate, isGroupOrganizer, paymentController.confirmPayment);
 router.put('/:paymentId/reject', paymentIdValidator, validate, isGroupOrganizer, paymentController.rejectPayment);

@@ -69,8 +69,10 @@ const initiatePayment = (paymentDetails) => {
       cycle_number: cycleNumber,
     },
     theme: {
-      color: '#6366f1',
+      color: '#10b981',
     },
+    // Note: UPI is only available on mobile devices in test mode
+    // On desktop, Cards, Netbanking, Wallet, and Pay Later are available
   };
 
   // Load Razorpay script and open checkout
@@ -105,12 +107,33 @@ const loadRazorpayScript = () => {
       return;
     }
 
+    // Check if script already exists
+    const existingScript = document.querySelector('script[src*="razorpay"]');
+    if (existingScript) {
+      existingScript.onload = resolve;
+      existingScript.onerror = () => reject(new Error('Failed to load Razorpay script'));
+      return;
+    }
+
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error('Failed to load Razorpay script'));
-    document.body.appendChild(script);
+    script.crossOrigin = 'anonymous';
+    
+    // Set timeout for loading
+    const timeout = setTimeout(() => {
+      reject(new Error('Razorpay script load timeout. Please check your internet connection or disable ad blockers.'));
+    }, 10000);
+    
+    script.onload = () => {
+      clearTimeout(timeout);
+      resolve();
+    };
+    script.onerror = () => {
+      clearTimeout(timeout);
+      reject(new Error('Failed to load Razorpay script. Please disable ad blockers and try again.'));
+    };
+    document.head.appendChild(script);
   });
 };
 

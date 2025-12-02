@@ -37,7 +37,8 @@ const PaymentApprovalModal = ({ isOpen, onClose, payment, onSuccess }) => {
 
   const handleReject = async () => {
     if (!adminRemarks.trim()) {
-      setError('Please provide a reason for rejection');
+      setError('Please provide a reason for rejection in the Admin Remarks field');
+      alert('Please provide a reason for rejection in the Admin Remarks field');
       return;
     }
 
@@ -50,12 +51,15 @@ const PaymentApprovalModal = ({ isOpen, onClose, payment, onSuccess }) => {
         adminRemarks
       });
 
+      alert('Payment rejected successfully');
       if (onSuccess) {
         onSuccess();
       }
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Failed to reject payment');
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to reject payment';
+      setError(errorMsg);
+      alert('Error: ' + errorMsg);
     } finally {
       setLoading(false);
       setAction(null);
@@ -246,6 +250,7 @@ const PaymentApprovalModal = ({ isOpen, onClose, payment, onSuccess }) => {
               variant="danger" 
               onClick={handleReject} 
               disabled={loading}
+              style={{ backgroundColor: '#f87171', borderColor: '#f87171', color: 'white' }}
             >
               {loading && action === 'reject' ? 'Rejecting...' : 'Reject'}
             </Button>
@@ -254,6 +259,7 @@ const PaymentApprovalModal = ({ isOpen, onClose, payment, onSuccess }) => {
               variant="success" 
               onClick={handleApprove} 
               disabled={loading}
+              style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
             >
               {loading && action === 'approve' ? 'Approving...' : 'Approve'}
             </Button>

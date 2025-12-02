@@ -28,64 +28,15 @@ const PaymentsDashboard = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedDetailsPayment, setSelectedDetailsPayment] = useState(null);
   const [organizerGroupIds, setOrganizerGroupIds] = useState([]);
-  const [demoPayments, setDemoPayments] = useState([]);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // Generate demo payments for testing
-  const generateDemoPayments = () => {
-    const demoData = [
-      {
-        _id: 'demo_' + Date.now() + '_1',
-        group: { _id: 'demo_group_1', name: 'Family Savings Pool' },
-        cycle: { _id: 'demo_cycle_1', cycleNumber: 3 },
-        type: 'contribution',
-        amount: 5000,
-        status: 'pending',
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString(),
-      },
-      {
-        _id: 'demo_' + Date.now() + '_2',
-        group: { _id: 'demo_group_2', name: 'Office Chit Fund' },
-        cycle: { _id: 'demo_cycle_2', cycleNumber: 5 },
-        type: 'contribution',
-        amount: 10000,
-        status: 'pending',
-        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString(),
-      },
-      {
-        _id: 'demo_' + Date.now() + '_3',
-        group: { _id: 'demo_group_1', name: 'Family Savings Pool' },
-        cycle: { _id: 'demo_cycle_3', cycleNumber: 2 },
-        type: 'contribution',
-        amount: 5000,
-        status: 'paid',
-        paidAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ];
-    setDemoPayments(demoData);
-    setSuccessMessage('Demo payments added! You can now test the Razorpay integration.');
-    setTimeout(() => setSuccessMessage(null), 5000);
-  };
-
-  // Handle demo payment success (update demo payment status)
-  const handleDemoPaymentSuccess = (paymentId) => {
-    setDemoPayments(prev => prev.map(p => 
-      p._id === paymentId 
-        ? { ...p, status: 'paid', paidAt: new Date().toISOString() }
-        : p
-    ));
-  };
-
-  // Check for completed demo payment on mount (from callback)
+  // Check for completed payment on mount (from Razorpay callback)
   useEffect(() => {
-    const completedDemoPaymentId = sessionStorage.getItem('completed_demo_payment');
-    if (completedDemoPaymentId) {
-      handleDemoPaymentSuccess(completedDemoPaymentId);
-      sessionStorage.removeItem('completed_demo_payment');
+    const paymentResult = razorpayService.getPaymentResult();
+    if (paymentResult && paymentResult.status === 'success') {
       setSuccessMessage('Payment completed successfully! Stats have been updated.');
+      razorpayService.clearPaymentResult();
+      fetchMyPayments(); // Refresh payments
       setTimeout(() => setSuccessMessage(null), 5000);
     }
   }, []);
@@ -154,8 +105,8 @@ const PaymentsDashboard = () => {
     }
   }, [searchParams]);
 
-  // Combine real payments with demo payments
-  const paymentList = [...(Array.isArray(payments) ? payments : []), ...demoPayments];
+  // Payment list from API
+  const paymentList = Array.isArray(payments) ? payments : [];
   const filteredPayments = paymentList.filter((payment) => {
     if (filterStatus === 'all') return true;
     if (filterStatus === 'pending') {
@@ -298,11 +249,12 @@ const PaymentsDashboard = () => {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {record.status === 'pending' && record.type === 'contribution' && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {(record.status === 'pending' || record.status === 'rejected') && (
             <Button 
               size="small" 
               variant="success" 
+              style={{ background: '#10b981', borderColor: '#10b981', color: 'white' }}
               onClick={() => {
                 razorpayService.initiatePayment({
                   amount: record.amount,
@@ -314,8 +266,9 @@ const PaymentsDashboard = () => {
                   cycleNumber: record.cycle?.cycleNumber || '',
                 });
               }}
+              title="Pay with Cards, UPI, NetBanking, Wallets"
             >
-              Pay
+              {record.status === 'rejected' ? 'Retry Payment' : 'Pay Now'}
             </Button>
           )}
           <Button 
@@ -335,11 +288,12 @@ const PaymentsDashboard = () => {
 
   // Calculate stats
   const paidStatuses = ['paid', 'under_review', 'verified', 'confirmed'];
+  const pendingStatuses = ['pending', 'rejected'];
   const stats = {
-    totalPending: paymentList.filter((p) => p.status === 'pending' && p.type === 'contribution').length,
+    totalPending: paymentList.filter((p) => pendingStatuses.includes(p.status)).length,
     totalPaid: paymentList.filter((p) => paidStatuses.includes(p.status)).length,
     pendingAmount: paymentList
-      .filter((p) => p.status === 'pending' && p.type === 'contribution')
+      .filter((p) => pendingStatuses.includes(p.status))
       .reduce((sum, p) => sum + p.amount, 0),
     paidAmount: paymentList
       .filter((p) => paidStatuses.includes(p.status))
@@ -385,21 +339,7 @@ const PaymentsDashboard = () => {
           </Alert>
         )}
 
-        {/* Demo Button - Always visible for testing when no demo payments */}
-        {demoPayments.length === 0 && (
-          <Card>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ color: '#666', margin: 0 }}>
-                  Test Razorpay integration with demo payments
-                </p>
-              </div>
-              <Button variant="primary" onClick={generateDemoPayments}>
-                Add Demo Payments
-              </Button>
-            </div>
-          </Card>
-        )}
+
 
         {/* Stats Cards */}
         <div className="payments-stats-grid">
@@ -479,9 +419,9 @@ const PaymentsDashboard = () => {
                   </div>
                   <div className="payment-card-footer" style={{ display: 'flex', gap: '8px' }}>
                     <Button
-                      variant="primary"
+                      variant="success"
                       size="small"
-                      style={{ flex: 1 }}
+                      style={{ flex: 1, background: '#10b981', borderColor: '#10b981', color: 'white' }}
                       onClick={() => {
                         setSelectedApprovalPayment(payment);
                         setShowApprovalModal(true);
@@ -496,14 +436,16 @@ const PaymentsDashboard = () => {
           </Card>
         )}
 
-        {/* Pending Payments Cards */}
-        {stats.totalPending > 0 && (
-          <Card title="Pending Payments" subtitle="Action required">
+        {/* Pending & Rejected Payments Cards */}
+        {paymentList.filter((p) => p.status === 'pending' || p.status === 'rejected').length > 0 && (
+          <Card title="Pending & Rejected Payments" subtitle="Action required">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
               {paymentList
-                .filter((p) => p.status === 'pending' && p.type === 'contribution')
+                .filter((p) => p.status === 'pending' || p.status === 'rejected')
                 .map((payment) => (
-                  <div key={payment._id} className="payment-card">
+                  <div key={payment._id} className="payment-card" style={{ 
+                    border: payment.status === 'rejected' ? '2px solid #ef4444' : '2px solid #10b981' 
+                  }}>
                     <div className="payment-card-header">
                       <div>
                         <div className="payment-card-group">{payment.group?.name || 'Unknown Group'}</div>
@@ -516,12 +458,25 @@ const PaymentsDashboard = () => {
                       <div className="payment-card-due">
                         Due: {new Date(payment.dueDate || payment.createdAt).toLocaleDateString()}
                       </div>
+                      {payment.status === 'rejected' && payment.adminRemarks && (
+                        <div style={{ 
+                          background: '#fef2f2', 
+                          border: '1px solid #fecaca', 
+                          borderRadius: '6px', 
+                          padding: '8px', 
+                          marginTop: '8px',
+                          fontSize: '12px',
+                          color: '#dc2626'
+                        }}>
+                          <strong>Rejection Reason:</strong> {payment.adminRemarks}
+                        </div>
+                      )}
                     </div>
                     <div className="payment-card-footer">
                       <Button
                         variant="success"
                         size="small"
-                        style={{ width: '100%' }}
+                        style={{ width: '100%', background: '#10b981', borderColor: '#10b981', color: 'white' }}
                         onClick={() => {
                           razorpayService.initiatePayment({
                             amount: payment.amount,

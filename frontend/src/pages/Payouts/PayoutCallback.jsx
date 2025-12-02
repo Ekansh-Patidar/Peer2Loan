@@ -4,9 +4,11 @@ import { DashboardLayout } from '../../components/layout';
 import { Card, Button, Loader } from '../../components/common';
 import useAuth from '../../hooks/useAuth';
 import razorpayService from '../../services/razorpayService';
+import payoutService from '../../services/payoutService';
 
 /**
  * PayoutCallback - Handles Razorpay payout callback
+ * Flow: After successful payment, auto-complete the payout
  */
 const PayoutCallback = () => {
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ const PayoutCallback = () => {
   const [processing, setProcessing] = useState(true);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [payoutCompleted, setPayoutCompleted] = useState(false);
 
   useEffect(() => {
     const processPayoutResult = async () => {
@@ -31,9 +34,29 @@ const PayoutCallback = () => {
 
         setResult(paymentResult);
         
-        // Store completed demo payout ID for the dashboard to update
-        if (status === 'success' && paymentResult.paymentId && paymentResult.paymentId.startsWith('demo_payout_')) {
-          sessionStorage.setItem('completed_demo_payout', paymentResult.paymentId);
+        // If payment was successful, auto-complete the payout
+        if (status === 'success' && razorpayService.verifyPayment(paymentResult)) {
+          try {
+            // Complete the payout with Razorpay transaction details
+            await payoutService.completePayout(paymentResult.paymentId, {
+              transactionId: paymentResult.razorpay_payment_id,
+              reference: paymentResult.razorpay_order_id || paymentResult.razorpay_payment_id,
+            });
+            setPayoutCompleted(true);
+          } catch (completeError) {
+            console.error('Failed to complete payout:', completeError);
+            setError(completeError.message || 'Failed to complete payout');
+          }
+        } else if (status === 'cancelled') {
+          // Payment was cancelled - no action needed, payout stays in approved status
+          console.log('Payout payment was cancelled');
+        } else {
+          // Payment failed - mark payout as failed so user can retry
+          try {
+            await payoutService.markPayoutFailed(paymentResult.paymentId, 'Payment failed or was declined');
+          } catch (failError) {
+            console.error('Failed to mark payout as failed:', failError);
+          }
         }
         
         setProcessing(false);
@@ -90,10 +113,31 @@ const PayoutCallback = () => {
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
-                <h2 style={{ color: '#2e7d32', marginBottom: '8px' }}>Payout Successful!</h2>
-                <p style={{ color: '#666', marginBottom: '24px' }}>
-                  Your payout of ₹{result?.amount?.toLocaleString()} has been processed successfully.
+                <h2 style={{ color: '#2e7d32', marginBottom: '8px' }}>Payout Completed!</h2>
+                <p style={{ color: '#666', marginBottom: '16px' }}>
+                  Payout of ₹{result?.amount?.toLocaleString()} to {result?.memberName || 'beneficiary'} has been completed successfully.
                 </p>
+                
+                {/* Payout Completed Notice */}
+                <div style={{
+                  background: '#d1fae5',
+                  border: '1px solid #10b981',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" style={{ width: '24px', height: '24px', flexShrink: 0 }}>
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: '600', color: '#065f46', fontSize: '14px' }}>Transfer Complete</div>
+                    <div style={{ color: '#047857', fontSize: '13px' }}>The payout has been marked as completed. Beneficiary has been notified.</div>
+                  </div>
+                </div>
                 
                 <div style={{
                   background: '#f5f5f5',
@@ -115,8 +159,16 @@ const PayoutCallback = () => {
                     </div>
                   </div>
                   <div style={{ marginBottom: '12px' }}>
+                    <span style={{ color: '#666', fontSize: '13px' }}>Beneficiary</span>
+                    <div style={{ fontWeight: '600' }}>{result?.memberName || 'N/A'}</div>
+                  </div>
+                  <div style={{ marginBottom: '12px' }}>
                     <span style={{ color: '#666', fontSize: '13px' }}>Group</span>
                     <div style={{ fontWeight: '600' }}>{result?.groupName || 'N/A'}</div>
+                  </div>
+                  <div style={{ marginBottom: '12px' }}>
+                    <span style={{ color: '#666', fontSize: '13px' }}>Status</span>
+                    <div style={{ fontWeight: '600', color: '#10b981' }}>Completed</div>
                   </div>
                   <div>
                     <span style={{ color: '#666', fontSize: '13px' }}>Date & Time</span>
@@ -126,7 +178,7 @@ const PayoutCallback = () => {
                   </div>
                 </div>
 
-                <Button variant="primary" onClick={handleGoToPayouts} style={{ width: '100%' }}>
+                <Button variant="success" onClick={handleGoToPayouts} style={{ width: '100%', background: '#10b981', borderColor: '#10b981', color: 'white' }}>
                   Go to Payouts
                 </Button>
               </>
