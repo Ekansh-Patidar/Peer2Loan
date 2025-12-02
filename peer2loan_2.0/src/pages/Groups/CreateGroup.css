@@ -1,0 +1,22 @@
+.create-group-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.page-header {
+  margin-bottom: 32px;
+}
+
+.page-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 32px;
+  font-weight: 600;
+  color: #212121;
+}
+
+.page-subtitle {
+  margin: 0;
+  font-size: 16px;
+  color: #757575;
+}

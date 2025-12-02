@@ -1,0 +1,93 @@
+.pot-counter {
+  position: relative;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 32px;
+  color: white;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+  transition: transform 0.3s ease;
+}
+
+.pot-counter:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+}
+
+.pot-counter-icon {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  opacity: 0.3;
+}
+
+.pot-counter-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.pot-counter-content {
+  position: relative;
+  z-index: 1;
+}
+
+.pot-counter-label {
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.9;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pot-counter-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.pot-counter-amount .currency {
+  font-size: 24px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.pot-counter-amount .amount {
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.pot-counter-glow {
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .pot-counter {
+    padding: 24px;
+  }
+
+  .pot-counter-icon {
+    width: 36px;
+    height: 36px;
+    top: 16px;
+    right: 16px;
+  }
+
+  .pot-counter-amount .currency {
+    font-size: 20px;
+  }
+
+  .pot-counter-amount .amount {
+    font-size: 32px;
+  }
+}

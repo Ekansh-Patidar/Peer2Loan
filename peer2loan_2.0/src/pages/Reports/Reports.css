@@ -1,0 +1,737 @@
+/* Reports Container */
+.reports-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Reports Header */
+.reports-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.reports-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.reports-subtitle {
+  margin: 8px 0 0 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.reports-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+/* Loading State */
+.reports-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 16px;
+}
+
+.reports-loading p {
+  color: #666;
+  font-size: 14px;
+}
+
+/* Ledger Summary Grid */
+.ledger-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-stat-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1;
+}
+
+.summary-stat-value.green {
+  color: #4caf50;
+}
+
+.summary-stat-value.blue {
+  color: #2196f3;
+}
+
+.summary-stat-value.red {
+  color: #f44336;
+}
+
+.summary-stat-value.positive {
+  color: #4caf50;
+}
+
+.summary-stat-value.negative {
+  color: #f44336;
+}
+
+.summary-stat-subtext {
+  font-size: 12px;
+  color: #999;
+}
+
+/* Ledger Filters */
+.ledger-filters {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Member Summary Grid */
+.member-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+/* Performance Metrics */
+.performance-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+}
+
+.metric-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.metric-bar {
+  height: 8px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.metric-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.metric-bar-fill.green {
+  background: linear-gradient(90deg, #4caf50 0%, #66bb6a 100%);
+}
+
+.metric-bar-fill.blue {
+  background: linear-gradient(90deg, #2196f3 0%, #42a5f5 100%);
+}
+
+.metric-bar-fill.purple {
+  background: linear-gradient(90deg, #9c27b0 0%, #ab47bc 100%);
+}
+
+/* Cycle Details Grid */
+.cycle-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.detail-item .label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-item .value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* Summary Stats Grid */
+.summary-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+/* Payment Status Grid */
+.payment-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.status-overview-item {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.status-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.status-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: white;
+}
+
+.status-icon.green {
+  background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+}
+
+.status-icon.yellow {
+  background: linear-gradient(135deg, #ffc107 0%, #ffa000 100%);
+}
+
+.status-icon.red {
+  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+}
+
+.status-content {
+  flex: 1;
+}
+
+.status-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.status-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: #999;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .reports-container {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .reports-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .reports-header h1 {
+    font-size: 24px;
+  }
+
+  .ledger-summary-grid,
+  .member-summary-grid,
+  .summary-stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  .payment-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-stat-value,
+  .status-value {
+    font-size: 24px;
+  }
+
+  .ledger-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-buttons {
+    width: 100%;
+  }
+
+  .filter-buttons button {
+    flex: 1;
+  }
+}
+
+/* Cycle Card Styles */
+.cycle-details {
+  padding: 20px;
+  background: white;
+}
+
+.payout-info {
+  margin-top: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.payout-info h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.payout-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.payout-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.payout-item .label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.payout-item .value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+/* Group Ledger Specific Styles */
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-item .label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-item .value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 4px;
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: white;
+}
+
+.stat-icon.green {
+  background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+}
+
+.stat-icon.purple {
+  background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+}
+
+.stat-icon.yellow {
+  background: linear-gradient(135deg, #ffc107 0%, #ffa000 100%);
+}
+
+.stat-icon.blue {
+  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+}
+
+.stat-icon.red {
+  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+}
+
+.stat-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1;
+}
+
+.stat-subtext {
+  font-size: 12px;
+  color: #999;
+}
+
+/* Cycles List */
+.cycles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cycle-card {
+  border: 2px solid #f0f0f0;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.cycle-card:hover {
+  border-color: #e0e0e0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.cycle-header {
+  padding: 20px;
+  background: white;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: background 0.2s;
+}
+
+.cycle-header:hover {
+  background: #fafafa;
+}
+
+.cycle-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 180px;
+}
+
+.cycle-title h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.cycle-summary {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.cycle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cycle-info .label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cycle-info .value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.cycle-details {
+  padding: 24px;
+  background: #fafafa;
+  border-top: 1px solid #f0f0f0;
+}
+
+.cycle-details h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* Payments Table */
+.payments-table {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.payments-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.payments-table thead {
+  background: #f5f5f5;
+}
+
+.payments-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.payments-table td {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #1a1a1a;
+  border-top: 1px solid #f0f0f0;
+}
+
+.payments-table tbody tr {
+  transition: background 0.2s;
+}
+
+.payments-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.payments-table tbody tr.late-payment {
+  background: #fff3e0;
+}
+
+.payments-table tbody tr.late-payment:hover {
+  background: #ffe0b2;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
+  .cycle-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cycle-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .cycle-title {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .cycle-summary {
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .payments-table {
+    font-size: 12px;
+  }
+
+  .payments-table th,
+  .payments-table td {
+    padding: 8px 12px;
+  }
+}
+
+/* Group Selection Dropdown */
+.reports-group-select-container {
+  margin-bottom: 16px;
+}
+
+.reports-group-select-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #374151;
+}
+
+.reports-group-select-wrapper {
+  position: relative;
+  max-width: 400px;
+}
+
+.reports-group-select {
+  width: 100%;
+  padding: 12px 16px;
+  padding-right: 40px;
+  /* Space for arrow */
+  font-size: 15px;
+  color: #1f2937;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  appearance: none;
+  /* Remove default arrow */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  font-family: inherit;
+}
+
+.reports-group-select:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.reports-group-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Custom Arrow Icon */
+.reports-group-select-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  pointer-events: none;
+  transition: transform 0.2s ease;
+}
+
+.reports-group-select:focus+.reports-group-select-wrapper::after {
+  transform: translateY(-50%) rotate(180deg);
+}

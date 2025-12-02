@@ -1,0 +1,225 @@
+@import '../../../../assets/styles/variables.css';
+
+.upi-payment {
+  padding: var(--spacing-xl);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.upi-payment-header {
+  text-align: center;
+  margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.upi-payment-header h3 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: var(--font-size-xl);
+  color: var(--gray-900);
+}
+
+.upi-amount {
+  font-size: 32px;
+  font-weight: var(--font-weight-bold);
+  color: var(--primary-600);
+  margin: 0;
+}
+
+.upi-recipient {
+  background: var(--gray-50);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+.upi-recipient-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.upi-recipient-info:last-child {
+  margin-bottom: 0;
+}
+
+.upi-recipient-info .label {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  font-weight: var(--font-weight-medium);
+}
+
+.upi-recipient-info .value {
+  font-size: var(--font-size-base);
+  color: var(--gray-900);
+  font-weight: var(--font-weight-semibold);
+}
+
+.upi-id-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.copy-btn {
+  background: transparent;
+  border: none;
+  padding: var(--spacing-xs);
+  cursor: pointer;
+  color: var(--primary-600);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.copy-btn:hover {
+  background: var(--primary-100);
+}
+
+.copy-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.upi-apps-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.section-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--gray-700);
+  margin-bottom: var(--spacing-md);
+}
+
+.upi-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+}
+
+.upi-app-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  background: var(--white);
+  border: 2px solid var(--gray-300);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.upi-app-btn:hover {
+  border-color: var(--app-color);
+  background: var(--gray-50);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.upi-app-btn.selected {
+  border-color: var(--app-color);
+  background: var(--primary-50);
+  box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.2);
+}
+
+.app-icon {
+  font-size: 32px;
+}
+
+.app-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--gray-900);
+}
+
+.upi-manual-option {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.manual-entry-btn {
+  background: transparent;
+  border: none;
+  color: var(--primary-600);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: var(--spacing-sm);
+  transition: color var(--transition-fast);
+}
+
+.manual-entry-btn:hover {
+  color: var(--primary-700);
+}
+
+.upi-manual-entry {
+  margin-top: var(--spacing-lg);
+}
+
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--gray-700);
+}
+
+.transaction-input {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  transition: all var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.transaction-input:focus {
+  outline: none;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px var(--primary-100);
+}
+
+.form-hint {
+  display: block;
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+}
+
+.upi-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+  margin-top: var(--spacing-xl);
+}
+
+.upi-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--gray-200);
+}
+
+@media (max-width: 768px) {
+  .upi-apps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upi-actions {
+    flex-direction: column-reverse;
+  }
+
+  .upi-actions button {
+    width: 100%;
+  }
+}

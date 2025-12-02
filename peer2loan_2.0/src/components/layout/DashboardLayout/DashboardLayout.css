@@ -1,0 +1,45 @@
+@import '../../../assets/styles/variables.css';
+
+.dashboard-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--gray-50);
+  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dashboard-layout-body {
+  display: flex;
+  flex: 1;
+  position: relative;
+}
+
+.dashboard-layout-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 56px);
+  margin-left: 0;
+  padding-top: 56px;
+  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dashboard-layout-content {
+  flex: 1;
+  padding: var(--spacing-xl);
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .dashboard-layout-content {
+    padding: var(--spacing-md);
+  }
+}
